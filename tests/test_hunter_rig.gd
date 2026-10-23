@@ -36,6 +36,14 @@ func run() -> void:
 	var head_end: Vector3 = p.rig.weapon.transform*Vector3(0,1.1,0)
 	var butt_end: Vector3 = p.rig.weapon.transform*Vector3(0,-0.93,0)
 	check(head_end.z>0 and butt_end.z<0,"guard rotates head rearward and butt forward")
+	for aim in [-0.9,0.65]:
+		p.pitch = aim
+		p.combat.set_action("light")
+		p.combat.elapsed = 0.25
+		p.animate(0,0)
+		for side in [-1,1]:
+			var arm: Dictionary = p.rig.arms[side]
+			check(arm.shoulder.position.distance_to(arm.hand.position)<0.80,"aimed thrust grip remains reachable")
 	print("RIG_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame

@@ -46,13 +46,15 @@ func run() -> void:
 	var p = scene.hunter
 	p.set_physics_process(false)
 	var m = monsters[0]
-	p.global_position = m.global_position+Vector3(0,0,3)
+	p.global_position = m.global_position+Vector3(0,0,2)
 	p.rig.root.rotation.y = 0
 	m.phase = "idle"
 	m.stagger = 0
 	var old_health: float = m.health
 	p.combat.request("light")
 	p.combat.advance(0.3)
+	p.animate(0,0)
+	p.update_weapon_contacts()
 	check(m.health<old_health,"real strike signal reaches monster in world")
 	var before: float = p.combat.health
 	p.combat.set_action("idle")

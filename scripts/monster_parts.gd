@@ -15,13 +15,21 @@ static func volumes(monster: Node3D) -> Array[Dictionary]:
 	return result
 
 static func cast(monster: Node3D, origin: Vector3, direction: Vector3, reach: float) -> Dictionary:
+	return cast_volumes(volumes(monster),origin,direction,reach,0.0)
+
+static func sweep(monster: Node3D, start: Vector3, end: Vector3, radius: float) -> Dictionary:
+	var motion := end-start
+	return cast_volumes(volumes(monster),start,motion.normalized() if motion.length()>0.00001 else Vector3.UP,motion.length(),radius)
+
+static func cast_volumes(parts: Array[Dictionary], origin: Vector3, direction: Vector3, reach: float, padding: float) -> Dictionary:
 	var result := {}
 	var closest := reach+1
 	var unit := direction.normalized()
-	for part in volumes(monster):
+	for part in parts:
 		var offset: Vector3 = origin-part.center
 		var b := offset.dot(unit)
-		var discriminant := b*b-offset.length_squared()+float(part.radius)*float(part.radius)
+		var radius: float = float(part.radius)+padding
+		var discriminant := b*b-offset.length_squared()+radius*radius
 		if discriminant<0: continue
 		var distance := maxf(0,-b-sqrt(discriminant))
 		if -b+sqrt(discriminant)<0 or distance>reach or distance>=closest: continue

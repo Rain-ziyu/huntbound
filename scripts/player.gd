@@ -18,6 +18,7 @@ var projectile: Node3D
 var pose_action := ""
 var pose_from := Transform3D.IDENTITY
 var pose_blend := 1.0
+var strike_windows: Array[Dictionary] = []
 
 func _ready() -> void:
 	var keys := {"move_forward":KEY_W,"move_back":KEY_S,"move_left":KEY_A,"move_right":KEY_D,"sprint":KEY_SHIFT}
@@ -49,6 +50,7 @@ func _ready() -> void:
 	camera.current = true
 	arm.add_child(camera)
 	combat.strike.connect(on_strike)
+	combat.action_changed.connect(func(_next: String): strike_windows.clear())
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	for i in 5:
 		var ghost := Visuals.trident(rig.root,true)
@@ -63,7 +65,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and (event.physical_keycode in [KEY_Q,KEY_E,KEY_R] or (event.physical_keycode==KEY_SPACE and event.ctrl_pressed)): return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		yaw -= event.relative.x*0.003
-		pitch = clampf(pitch-event.relative.y*0.0025,-0.9,0.25)
+		pitch = clampf(pitch-event.relative.y*0.0025,-0.9,0.65)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_ESCAPE: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode==Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
@@ -130,6 +132,7 @@ func _physics_process(delta: float) -> void:
 	mount.position = global_position+Vector3(0,1.5,0)
 	mount.rotation = Vector3(pitch,yaw,0)
 	animate(delta,direction.length()*speed)
+	update_weapon_contacts()
 	if global_position.y < -15: global_position = Vector3(0,2,8)
 
 func animate(delta: float, speed: float) -> void:
@@ -150,9 +153,15 @@ func animate(delta: float, speed: float) -> void:
 		var p := clampf(t/float(Combat.MOVES[combat.action].duration),0,1)
 		match combat.action:
 			"light","flash","fourfold":
-				var pulse := sin(p*PI) if combat.action!="fourfold" else sin(p*PI*4)
-				w.position.z -= maxf(0,pulse)*0.15
-				w.rotation.x += 0.18
+				var pulse := 0.0
+				for hit_time in Combat.MOVES[combat.action].hits:
+					pulse = maxf(pulse,exp(-pow((t-float(hit_time))/0.09,2)))
+				w.position.z -= pulse*0.15
+				w.rotation.x += 0.18+clampf(pitch+0.25,-0.4,0.85)
+			"pull":
+				# Catch with the backward-facing side teeth, then draw the head toward the hip.
+				w.position.z += lerpf(-0.12,0.20,smoothstep(0.22,0.58,t))
+				w.rotation.x += 0.12
 			"heavy","turn","spin","finisher":
 				w.rotation.y = -1.5+p*(TAU if combat.action in ["turn","spin","finisher"] else 3)
 				if combat.action=="finisher" and p>0.55: rig.joints["leg1"].rotation.x = -sin((p-0.55)/0.45*PI)*1.3
@@ -189,33 +198,48 @@ func on_strike(_beat: int) -> void:
 		shot.global_position = global_position+Vector3(0,1.1,0)
 		shot.look_at(shot.global_position+shot.direction)
 		return
-	var reach: float = Combat.MOVES[action].reach
-	var hit := false
-	for m in get_tree().get_nodes_in_group("monsters"):
-		var offset: Vector3 = m.global_position-global_position
-		offset.y = 0
-		var angle: float = offset.normalized().dot(-rig.root.global_basis.z)
-		var broad := action in ["heavy","turn","spin","finisher"]
-		if offset.length() <= reach+float(m.data.size)*0.30 and (broad or angle>0.55):
+	strike_windows.append({"action":action,"beat":_beat,"ends":combat.elapsed+0.12,"previous":weapon_contact_points(action,_beat),"victims":{}})
+
+func weapon_contact_points(action: String, beat: int) -> PackedVector3Array:
+	var points := PackedVector3Array()
+	if action=="finisher" and beat==1:
+		# Use the kicking foot rather than granting another full circular weapon hit.
+		points.append(rig.joints["leg1"].to_global(Vector3(0,-0.83,-0.18)))
+	elif action=="reply":
+		for y in [-0.98,-0.88]: points.append(rig.weapon.to_global(Vector3(0,y,0)))
+	else:
+		for y in [1.20,0.95,0.70]: points.append(rig.weapon.to_global(Vector3(0,y,0)))
+		for side in [-1,1]: points.append(rig.weapon.to_global(Vector3(side*0.13,1.06,0)))
+	return points
+
+func update_weapon_contacts() -> void:
+	for window in strike_windows.duplicate():
+		if window.action!=combat.action or combat.elapsed>float(window.ends) or combat.health<=0:
+			strike_windows.erase(window)
+			continue
+		var points := weapon_contact_points(window.action,window.beat)
+		var previous: PackedVector3Array = window.previous
+		if previous.is_empty(): previous = points
+		var radius := 0.16 if window.action=="finisher" and window.beat==1 else 0.075
+		for m in get_tree().get_nodes_in_group("monsters"):
+			if m.health<=0 or window.victims.has(m.get_instance_id()): continue
 			var contact := {}
-			var origin := global_position+Vector3(0,1.15,0)
-			var count := 9 if broad else 1
-			for sample in count:
-				var arc := PI if action in ["spin","finisher"] else 1.5
-				var turn := lerpf(-arc,arc,float(sample)/8.0) if broad else 0.0
-				var direction: Vector3 = (-rig.root.global_basis.z).rotated(Vector3.UP,turn)
-				if action in ["light","flash","fourfold"]: direction = (direction+Vector3.UP*0.25).normalized()
-				var candidate: Dictionary = Parts.cast(m,origin,direction,reach)
-				if not candidate.is_empty() and (contact.is_empty() or candidate.distance<contact.distance): contact = candidate
+			for index in points.size():
+				var candidate := Parts.sweep(m,previous[index],points[index],radius)
+				if candidate.is_empty() and index>0: candidate = Parts.sweep(m,points[index-1],points[index],radius)
+				if not candidate.is_empty():
+					contact = candidate
+					break
 			if contact.is_empty(): continue
-			var query := PhysicsRayQueryParameters3D.create(global_position+Vector3.UP,m.global_position+Vector3.UP)
+			var query := PhysicsRayQueryParameters3D.create(global_position+Vector3(0,1.15,0),contact.point)
 			query.exclude = [get_rid(),m.get_rid()]
 			if not get_world_3d().direct_space_state.intersect_ray(query).is_empty(): continue
-			var result: Dictionary = m.receive_strike(combat.damage(),global_position,action,contact.part)
+			window.victims[m.get_instance_id()] = true
+			var result: Dictionary = m.receive_strike(combat.damage(),global_position,window.action,contact.part)
 			if result.hit:
-				hit = true
 				combat.confirm_hit()
 				message = ("弱点！ " if result.weak else "命中 ")+str(roundi(result.damage))+" · "+str(result.part)
+		window.previous = points
 
 func finish_throw(point: Vector3) -> void:
 	projectile = null
