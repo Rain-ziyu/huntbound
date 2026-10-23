@@ -55,7 +55,7 @@ func _ready() -> void:
 	camera.current = true
 	arm.add_child(camera)
 	combat.strike.connect(on_strike)
-	combat.action_changed.connect(func(_next: String): strike_windows.clear())
+	combat.action_changed.connect(on_action_changed)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	for i in 5:
 		var ghost := Visuals.trident(rig.root,true)
@@ -69,8 +69,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]: return
 		if event is InputEventKey and (event.physical_keycode in [KEY_Q,KEY_E,KEY_R] or (event.physical_keycode==KEY_SPACE and event.ctrl_pressed)): return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		yaw -= event.relative.x*0.003
-		pitch = clampf(pitch-event.relative.y*0.0025,-0.9,0.65)
+		apply_look(event.relative)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_ESCAPE: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode==Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
@@ -97,6 +96,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif heavy_held>=0:
 				combat.request("throw" if heavy_held>=0.45 else "heavy")
 				heavy_held = -1
+
+func apply_look(relative: Vector2) -> void:
+	yaw -= relative.x*0.003
+	pitch = clampf(pitch-relative.y*0.0025,-0.9,0.65)
+
+func on_action_changed(next: String) -> void:
+	strike_windows.clear()
+	if not is_instance_valid(lock_target) and next not in ["idle","hurt","dodge","wait","counter_window"]:
+		rig.root.rotation.y = yaw
 
 func nearest_monster() -> Node3D:
 	var result: Node3D
@@ -132,10 +140,12 @@ func _physics_process(delta: float) -> void:
 	if is_instance_valid(lock_target):
 		var offset := lock_target.global_position-global_position
 		rig.root.rotation.y = lerp_angle(rig.root.rotation.y,atan2(-offset.x,-offset.z),delta*10)
-	elif direction.length()>0.1:
+	elif direction.length()>0.1 and combat.action=="idle":
 		rig.root.rotation.y = lerp_angle(rig.root.rotation.y,atan2(-direction.x,-direction.z),delta*12)
 	mount.position = global_position+Vector3(0,1.5,0)
-	mount.rotation = Vector3(pitch,yaw,0)
+	# Keep the orbit above the floor while the nearby weapon aims at elevated parts.
+	var orbit_pitch := pitch*0.2 if pitch>0 else pitch
+	mount.rotation = Vector3(orbit_pitch,yaw,0)
 	animate(delta,direction.length()*speed)
 	update_weapon_contacts()
 	if global_position.y < -15: global_position = Vector3(0,2,8)
@@ -168,6 +178,7 @@ func animate(delta: float, speed: float) -> void:
 				w.rotation.x += 0.12
 			"heavy","turn","spin","finisher":
 				w.rotation.y = -1.5+p*(TAU if combat.action in ["turn","spin","finisher"] else 3)
+				if combat.action in ["heavy","turn"]: w.rotation.x += clampf(pitch+0.25,-0.4,0.85)*1.22
 			"guard","reply":
 				w.rotation.y = clampf(t/0.18,0,1)*PI
 				w.position.z += 0.55

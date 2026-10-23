@@ -54,7 +54,7 @@ WASD 移动，鼠标转视角，Shift 奔跑，空格闪避，中键锁定，Esc
 
 左键轻击；右键短按横扫，长按后松开投掷位移；E 回拉；Alt 加左键转身；Q 格挡。成功格挡后左键反击，反击命中后 Ctrl 加左键闪刺以获得枪影。
 
-刺击会随鼠标仰视或俯视抬高、压低枪尖；攻击高处雾囊或背棘时需要调整视角和站位。近战按有效帧中的实际枪头、枪尾或脚部轨迹检测，不再一次结算整个扇形。
+刺击和横扫会随鼠标仰俯调整攻击高度。未锁定时朝视角出招，出招中的移动保持攻击方向；头颈偏离躯干时可解除锁定，自由瞄准。攻击高处雾囊或背棘需要调整视角与站位。近战按有效帧中的实际枪头、枪尾或脚部轨迹检测，不再一次结算整个扇形。
 
 有枪影时 Ctrl 加左键四连刺、Ctrl 加右键旋转；每次消耗一层。拔枪时 Ctrl 加空格插地，再单按 Ctrl 开启 0.5 秒反击窗口。R 收枪。
 
@@ -72,6 +72,8 @@ WASD 移动，鼠标转视角，Shift 奔跑，空格闪避，中键锁定，Esc
 ```powershell
 & 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --headless --fixed-fps 60 --path . --script res://tests/replay_weapon_sequence.gd
 & 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --headless --fixed-fps 60 --path . --script res://tests/replay_interruptions.gd
+& 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --headless --fixed-fps 60 --path . --script res://tests/replay_weakpoints.gd -- --species=mistfrill
+& 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --headless --fixed-fps 60 --path . --script res://tests/replay_weakpoints.gd -- --species=stormcrest
 ```
 
 回放读取内部状态并自动选择时机，使用实际移动、动作请求、巨兽伤害和武器接触，不能代表人工难度验收。详细事件报告输出到项目父目录的 `Shubian-weapon-sequence.json` 与 `Shubian-interruptions.json`。

@@ -81,7 +81,7 @@ func _physics_process(delta: float) -> void:
 		return
 	label.text = "%s  %d/%d\n%s" % [data.name,ceili(health),int(data.health),data.weakness]
 	weak_marker.visible = data.weak_side=="rear" or (data.weak_side=="front" and phase=="windup") or (data.weak_side=="flank" and exposed>0)
-	if data.id=="stormcrest": weak_marker.visible = phase=="windup"
+	if data.id=="stormcrest": weak_marker.visible = phase=="windup" or stagger>0
 	stagger = maxf(0,stagger-delta)
 	exposed = maxf(0,exposed-delta)
 	if not is_on_floor(): velocity.y -= 25*delta
@@ -133,7 +133,7 @@ func _physics_process(delta: float) -> void:
 		tell.material_override.albedo_color = Color("71cce4") if data.pattern=="pulse" else (Color("93ae55") if data.pattern=="mist" else Color("c39a55"))
 		if clock < float(data.windup)*0.7:
 			target_point = target.global_position
-			rotation.y = lerp_angle(rotation.y,atan2(-offset.x,-offset.z),delta*2)
+			if data.pattern!="pulse": rotation.y = lerp_angle(rotation.y,atan2(-offset.x,-offset.z),delta*2)
 		if data.pattern=="mist":
 			tell.scale = Vector3(8,0.025,8)
 			tell.global_position = Vector3(target_point.x,preload("res://scripts/forest_terrain.gd").height_at(target_point.x,target_point.z)+0.08,target_point.z)
@@ -195,7 +195,7 @@ func receive_strike(amount: float, origin: Vector3, action: String, part := "") 
 	var weak: bool = (data.weak_side == "rear" and dot_front < -0.3) or (data.weak_side == "flank" and absf(dot_front)<0.65 and exposed>0) or (data.weak_side == "front" and dot_front>0.2 and phase=="windup")
 	if part!="":
 		weak = (data.weak_side=="rear" and part=="tail") or (data.weak_side=="flank" and part=="flank" and exposed>0) or (data.weak_side=="front" and part=="head" and phase=="windup")
-		if data.id=="stormcrest": weak = part=="spine" and phase=="windup"
+		if data.id=="stormcrest": weak = part=="spine" and (phase=="windup" or stagger>0)
 	var factor := float(data.weak_multiplier) if weak else (float(data.front_armor) if dot_front > 0.4 and armor_integrity>0 else 1.0)
 	if data.id=="mossback" and part=="body": armor_integrity = maxf(0,armor_integrity-amount)
 	if data.id=="mossback" and armor_integrity<=0:

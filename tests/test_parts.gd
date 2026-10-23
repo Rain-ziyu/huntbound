@@ -47,6 +47,10 @@ func run() -> void:
 			check(m.disrupted==0,"tail is not charged spine")
 			m.receive_strike(100,origin,"light","spine")
 			check(m.stagger>0,"charged spine hit interrupts")
+			m.phase = "recover"
+			check(m.receive_strike(10,origin,"light","spine").weak,"staggered spine keeps promised weakness bonus")
+			m.stagger = 0
+			check(not m.receive_strike(10,origin,"light","spine").weak,"ordinary recovery does not automatically expose spine")
 	print("PART_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame

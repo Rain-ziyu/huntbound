@@ -86,6 +86,7 @@ func run() -> void:
 	mist.phase = "windup"
 	mist.stagger = 0
 	p.rig.root.rotation.y = PI
+	p.yaw = PI
 	p.combat.set_action("light")
 	p.combat.elapsed = 0.25
 	p.animate(0,0)

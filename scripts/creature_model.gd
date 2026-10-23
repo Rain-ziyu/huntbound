@@ -60,7 +60,15 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 	if phase=="windup":
 		var fraction := clampf(clock/float(data.windup),0,1)
 		neck.rotation.x = (0.35 if data.pattern=="charge" else -0.20)*fraction
+		root.position.y = -0.45*smoothstep(0,0.4,clock) if data.pattern=="pulse" else 0.0
 	elif phase=="active":
+		if data.pattern=="pulse": root.position.y = -0.45*(1-smoothstep(0,0.3,clock))
 		if data.pattern=="sweep": neck.rotation.y = sin(clock/0.65*PI)*0.8
 		if data.pattern=="leap": root.position.y = sin(clampf(clock/0.65,0,1)*PI)*1.0
 	else: root.position.y = 0
+	# Keep planted limb roots at their standing height while the charging torso lowers.
+	var hip_height := float(data.size)*(0.50 if "quadruped" in data.body else 0.64)*0.9
+	for side in [-1,1]:
+		for label in ["Front","Hind"]:
+			var leg := root.get_node_or_null(label+str(side)) as Node3D
+			if leg: leg.position.y = hip_height-minf(root.position.y,0)
