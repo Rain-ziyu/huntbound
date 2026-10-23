@@ -21,6 +21,9 @@ var label: Label3D
 var attack_done := false
 var disrupted := 0.0
 var exposed := 0.0
+var impact_time := 0.0
+var impact_material: StandardMaterial3D
+var impact_meshes: Array[MeshInstance3D] = []
 
 func _ready() -> void:
 	collision_mask = 3
@@ -33,6 +36,10 @@ func _ready() -> void:
 	collider.position.y = shape.height/2
 	add_child(collider)
 	mesh = CreatureModel.create(self,data)
+	impact_material = Visuals.mat(Color.WHITE,true)
+	impact_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	impact_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for part in mesh.find_children("*","MeshInstance3D",true,false): impact_meshes.append(part)
 	var s: float = data.size
 	var marker_pos := Vector3(0,s*0.58,s*0.48)
 	if data.id=="stormcrest": marker_pos = Vector3(0,s*1.12,s*0.15)
@@ -49,6 +56,19 @@ func _ready() -> void:
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(label)
 	add_to_group("monsters")
+
+func show_impact(weak: bool) -> void:
+	impact_time = 0.12
+	impact_material.albedo_color = Color(1.0,0.77,0.30,0.32) if weak else Color(0.58,0.95,0.88,0.24)
+	impact_material.emission = impact_material.albedo_color
+	for part in impact_meshes: part.material_overlay = impact_material
+
+func _process(delta: float) -> void:
+	if impact_time<=0: return
+	impact_time = maxf(0,impact_time-delta)
+	impact_material.albedo_color.a = minf(impact_material.albedo_color.a,impact_time*2.7)
+	if impact_time==0:
+		for part in impact_meshes: part.material_overlay = null
 
 func _physics_process(delta: float) -> void:
 	if health <= 0:
@@ -183,6 +203,7 @@ func receive_strike(amount: float, origin: Vector3, action: String, part := "") 
 			var plate := mesh.get_node_or_null("ArmorPlate"+str(i)) as MeshInstance3D
 			if plate: plate.visible = false
 	health = maxf(0,health-amount*factor)
+	show_impact(weak)
 	if weak and data.id == "mistfrill" and phase == "windup": stagger = 1.8
 	if weak and data.id == "stormcrest" and phase == "windup":
 		disrupted += amount

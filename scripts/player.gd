@@ -4,6 +4,7 @@ const Visuals = preload("res://scripts/visuals.gd")
 const Projectile = preload("res://scripts/trident_projectile.gd")
 const HunterModel = preload("res://scripts/hunter_model.gd")
 const Parts = preload("res://scripts/monster_parts.gd")
+const HitFeedback = preload("res://scripts/hit_feedback.gd")
 var combat = Combat.new()
 var rig: Dictionary
 var mount: Node3D
@@ -19,6 +20,9 @@ var pose_action := ""
 var pose_from := Transform3D.IDENTITY
 var pose_blend := 1.0
 var strike_windows: Array[Dictionary] = []
+var camera: Camera3D
+var shake_time := 0.0
+var shake_strength := 0.0
 
 func _ready() -> void:
 	var keys := {"move_forward":KEY_W,"move_back":KEY_S,"move_left":KEY_A,"move_right":KEY_D,"sprint":KEY_SHIFT}
@@ -45,7 +49,7 @@ func _ready() -> void:
 	arm.collision_mask = 3
 	arm.add_excluded_object(get_rid())
 	mount.add_child(arm)
-	var camera := Camera3D.new()
+	camera = Camera3D.new()
 	camera.fov = 68
 	camera.current = true
 	arm.add_child(camera)
@@ -184,6 +188,28 @@ func take_damage(amount: float, origin: Vector3, blockable: bool, interrupt := t
 	var result: String = combat.receive_damage(amount,blockable,direction.dot(-rig.root.global_basis.z)>0.15,interrupt)
 	message = {"counter":"反击成功！旋转踢击，不消耗枪影。","guarded":"格挡成功：左键反击，再 Ctrl+左键闪刺。","immune":"免伤","armored":"霸体承伤：动作继续","hurt":"受击！注意预警与站位。"}.get(result,result)
 	if result=="ongoing": message = "毒雾持续伤害：离开绿色区域！"
+	if result in ["hurt","armored"]: trigger_camera_impact(0.04)
+	elif result in ["guarded","counter"]: trigger_camera_impact(0.02)
+
+func trigger_camera_impact(strength: float) -> void:
+	shake_time = 0.16
+	shake_strength = maxf(shake_strength,strength)
+
+func _process(delta: float) -> void:
+	shake_time = maxf(0,shake_time-delta)
+	var envelope := shake_time/0.16
+	camera.h_offset = sin(shake_time*170)*shake_strength*envelope
+	camera.v_offset = cos(shake_time*145)*shake_strength*envelope*0.65
+	if shake_time==0: shake_strength = 0
+
+func show_hit_feedback(point: Vector3, result: Dictionary) -> void:
+	if not result.get("hit",false): return
+	var effect := HitFeedback.new()
+	effect.damage = result.damage
+	effect.weak = result.weak
+	get_parent().add_child(effect)
+	effect.global_position = point
+	trigger_camera_impact(0.028 if result.weak else 0.014)
 
 func on_strike(_beat: int) -> void:
 	var action: String = combat.action
@@ -238,6 +264,7 @@ func update_weapon_contacts() -> void:
 			var result: Dictionary = m.receive_strike(combat.damage(),global_position,window.action,contact.part)
 			if result.hit:
 				combat.confirm_hit()
+				show_hit_feedback(contact.point,result)
 				message = ("弱点！ " if result.weak else "命中 ")+str(roundi(result.damage))+" · "+str(result.part)
 		window.previous = points
 

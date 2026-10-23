@@ -25,7 +25,8 @@ func _physics_process(delta: float) -> void:
 		global_position = hit.position
 		if hit.collider.has_method("receive_strike"):
 			var part: String = preload("res://scripts/monster_parts.gd").at_point(hit.collider,hit.position)
-			hit.collider.receive_strike(amount,shooter.global_position,"throw",part)
+			var result: Dictionary = hit.collider.receive_strike(amount,shooter.global_position,"throw",part)
+			shooter.show_hit_feedback(hit.position,result)
 		finish()
 		return
 	global_position = end

@@ -32,6 +32,7 @@ func run() -> void:
 		if shot.finished: break
 		shot._physics_process(0.025)
 	check(shot.finished and m.health<hp,"flight ray collides and damages creature")
+	check(get_nodes_in_group("hit_feedback").size()==1,"projectile contact produces one feedback effect")
 	if p.global_position.z >= -10: print("LANDING_DIAGNOSTIC: ",p.message," at ",p.global_position)
 	check(p.global_position.z < -10 and p.global_position.z > -16,"arrival stops before monster capsule")
 	await process_frame

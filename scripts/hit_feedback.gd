@@ -1,0 +1,74 @@
+extends Node3D
+## Presentation only: never advances, pauses or changes combat/physics state.
+const Visuals = preload("res://scripts/visuals.gd")
+static var normal_sound: AudioStreamWAV
+static var weak_sound: AudioStreamWAV
+var damage := 0.0
+var weak := false
+var age := 0.0
+var lifetime := 0.55
+var rays: Array[MeshInstance3D] = []
+var flash_material: StandardMaterial3D
+var number: Label3D
+
+func _ready() -> void:
+	add_to_group("hit_feedback")
+	var color := Color("f4cd77") if weak else Color("a6e8de")
+	flash_material = Visuals.mat(color,true)
+	flash_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	flash_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for index in 6:
+		var ray := Visuals.piece(self,Vector3.ZERO,Vector3(0.035,0.12,0.035),color)
+		ray.material_override = flash_material
+		ray.rotation.z = index*PI/3
+		rays.append(ray)
+	number = Label3D.new()
+	number.text = ("弱点 " if weak else "")+str(roundi(damage))
+	number.font_size = 52 if weak else 42
+	number.pixel_size = 0.005
+	number.modulate = color
+	number.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	number.no_depth_test = true
+	number.outline_size = 8
+	add_child(number)
+	var sound := AudioStreamPlayer3D.new()
+	if normal_sound==null: normal_sound = synthesize(false)
+	if weak_sound==null: weak_sound = synthesize(true)
+	sound.stream = weak_sound if weak else normal_sound
+	sound.volume_db = -13 if weak else -16
+	sound.max_distance = 24
+	add_child(sound)
+	if DisplayServer.get_name()!="headless": sound.play()
+	advance_visual(0)
+
+static func synthesize(is_weak: bool) -> AudioStreamWAV:
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 22050
+	var samples := PackedByteArray()
+	var duration := 0.14 if is_weak else 0.10
+	var frames := int(duration*stream.mix_rate)
+	samples.resize(frames*2)
+	for frame in frames:
+		var t := float(frame)/stream.mix_rate
+		var envelope := minf(t/0.002,1.0)*exp(-t*42)*(1-t/duration)
+		var tone := sin(TAU*(950 if is_weak else 180)*t)+0.35*sin(TAU*2317*t)*sin(TAU*317*t)
+		samples.encode_s16(frame*2,int(clampf(tone*envelope*0.50,-1,1)*32767))
+	stream.data = samples
+	return stream
+
+func _process(delta: float) -> void: advance_visual(delta)
+
+func advance_visual(delta: float) -> void:
+	age += delta
+	if age>=lifetime:
+		queue_free()
+		return
+	var alpha := maxf(0,1-age/0.18)
+	flash_material.albedo_color.a = alpha
+	for index in rays.size():
+		var angle := index*TAU/6
+		rays[index].position = Vector3(sin(angle),cos(angle),0)*(0.04+age*1.2)
+		rays[index].visible = alpha>0
+	number.position.y = 0.16+age*0.8
+	number.modulate.a = clampf((lifetime-age)/0.20,0,1)
