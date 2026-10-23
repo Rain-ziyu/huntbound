@@ -191,6 +191,9 @@ func on_strike(_beat: int) -> void:
 		var angle: float = offset.normalized().dot(-rig.root.global_basis.z)
 		var broad := action in ["heavy","turn","spin","finisher"]
 		if offset.length() <= reach+float(m.data.size)*0.30 and (broad or angle>0.55):
+			var query := PhysicsRayQueryParameters3D.create(global_position+Vector3.UP,m.global_position+Vector3.UP)
+			query.exclude = [get_rid(),m.get_rid()]
+			if not get_world_3d().direct_space_state.intersect_ray(query).is_empty(): continue
 			var result: Dictionary = m.receive_strike(combat.damage(),global_position,action)
 			if result.hit:
 				hit = true

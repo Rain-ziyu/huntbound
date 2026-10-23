@@ -36,6 +36,7 @@ func run() -> void:
 	check(cloud.is_queued_for_deletion(),"mist lifetime is bounded")
 	for m in get_nodes_in_group("monsters"):
 		if m.data.pattern in ["mist","pulse"]:
+			p.global_position = m.global_position-m.global_basis.z*3
 			m.phase = "active"
 			m.attack_done = false
 			m.target_point = p.global_position

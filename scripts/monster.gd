@@ -1,6 +1,8 @@
 extends CharacterBody3D
 const Visuals = preload("res://scripts/visuals.gd")
 const Hazard = preload("res://scripts/hazard.gd")
+const CreatureModel = preload("res://scripts/creature_model.gd")
+var gait := 0.0
 var data: Dictionary
 var target: CharacterBody3D
 var health := 0.0
@@ -25,8 +27,8 @@ func _ready() -> void:
 	collider.shape = shape
 	collider.position.y = shape.height/2
 	add_child(collider)
-	mesh = Visuals.creature(self,data)
-	tell = Visuals.piece(self,Vector3(0,0.05,0),Vector3(float(data.reach)*1.8,0.025,float(data.reach)*1.8),Color("b48848"),true)
+	mesh = CreatureModel.create(self,data)
+	tell = Visuals.piece(self,Vector3(0,0.05,0),Vector3(float(data.reach)*2,0.025,float(data.reach)*2),Color("b48848"),true)
 	tell.visible = false
 	label = Label3D.new()
 	label.position.y = float(data.size)*1.5
@@ -73,10 +75,13 @@ func _physics_process(delta: float) -> void:
 				attack_done = false
 	elif phase == "windup":
 		tell.visible = true
-		tell.material_override = Visuals.mat(Color("71cce4") if data.pattern=="pulse" else (Color("93ae55") if data.pattern=="mist" else Color("c39a55")))
+		tell.material_override.albedo_color = Color("71cce4") if data.pattern=="pulse" else (Color("93ae55") if data.pattern=="mist" else Color("c39a55"))
 		if clock < float(data.windup)*0.7:
 			target_point = target.global_position
 			rotation.y = lerp_angle(rotation.y,atan2(-offset.x,-offset.z),delta*2)
+		if data.pattern=="mist":
+			tell.scale = Vector3(8,0.025,8)
+			tell.global_position = Vector3(target_point.x,preload("res://scripts/forest_terrain.gd").height_at(target_point.x,target_point.z)+0.08,target_point.z)
 		mesh.rotation.x = sin(clock*12)*0.05
 		if clock >= float(data.windup):
 			phase = "active"
@@ -84,7 +89,7 @@ func _physics_process(delta: float) -> void:
 	elif phase == "active":
 		if data.pattern=="mist" and not attack_done:
 			attack_done = true
-			spawn_hazard(target_point,4.0,6.0,9.0,"mist")
+			if clear_line_to(target_point): spawn_hazard(target_point,4.0,6.0,9.0,"mist")
 		elif data.pattern=="pulse" and not attack_done:
 			attack_done = true
 			spawn_hazard(global_position,float(data.reach),0.7,float(data.damage),"pulse")
@@ -94,7 +99,7 @@ func _physics_process(delta: float) -> void:
 			velocity += direction*(13 if data.pattern == "charge" else 10)
 		if not attack_done:
 			var forward := offset.normalized().dot(-global_basis.z)>-0.15
-			if distance < float(data.reach) and forward and (data.pattern not in ["charge","leap"] or distance < 3.8):
+			if distance < float(data.reach) and forward and clear_line_to(target.global_position) and (data.pattern not in ["charge","leap"] or distance < 3.8):
 				attack_done = true
 				target.take_damage(float(data.damage),global_position,data.pattern not in ["mist","pulse"])
 		if clock > 0.65:
@@ -108,10 +113,13 @@ func _physics_process(delta: float) -> void:
 			phase = "idle"
 			clock = 0
 	move_and_slide()
+	gait += delta*Vector2(velocity.x,velocity.z).length()*1.7
+	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length())
 
 func spawn_hazard(point: Vector3, radius: float, duration: float, amount: float, kind: String) -> void:
 	var hazard := Hazard.new()
 	hazard.target = target
+	hazard.source_actor = self
 	hazard.radius = radius
 	hazard.lifetime = duration
 	hazard.damage = amount
@@ -119,6 +127,11 @@ func spawn_hazard(point: Vector3, radius: float, duration: float, amount: float,
 	hazard.interval = 0.8 if kind=="mist" else 2.0
 	get_parent().add_child(hazard)
 	hazard.global_position = Vector3(point.x,preload("res://scripts/forest_terrain.gd").height_at(point.x,point.z)+0.05,point.z)
+
+func clear_line_to(point: Vector3) -> bool:
+	var query := PhysicsRayQueryParameters3D.create(global_position+Vector3.UP,point+Vector3.UP)
+	query.exclude = [get_rid(),target.get_rid()]
+	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
 
 func receive_strike(amount: float, origin: Vector3, action: String) -> Dictionary:
 	if health <= 0: return {"hit":false}

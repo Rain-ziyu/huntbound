@@ -8,6 +8,7 @@ var damage := 9.0
 var clock := 0.0
 var kind := "mist"
 var surface: MeshInstance3D
+var source_actor: CollisionObject3D
 
 func _ready() -> void:
 	add_to_group("hazards")
@@ -34,4 +35,8 @@ func _physics_process(delta: float) -> void:
 func contains_target() -> bool:
 	if not is_instance_valid(target) or target.combat.health<=0: return false
 	var offset := target.global_position-global_position
-	return Vector2(offset.x,offset.z).length()<radius and absf(offset.y)<2.0
+	if Vector2(offset.x,offset.z).length()>=radius or absf(offset.y)>=2.0: return false
+	var query := PhysicsRayQueryParameters3D.create(global_position+Vector3.UP,target.global_position+Vector3.UP)
+	query.exclude = [target.get_rid()]
+	if is_instance_valid(source_actor): query.exclude = [target.get_rid(),source_actor.get_rid()]
+	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
