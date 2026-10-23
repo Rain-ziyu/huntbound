@@ -15,6 +15,7 @@ var ghosts: Array[Node3D] = []
 var projectile: Node3D
 
 func _ready() -> void:
+	collision_mask = 3
 	var col := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
 	shape.radius = 0.32
@@ -28,6 +29,7 @@ func _ready() -> void:
 	var arm := SpringArm3D.new()
 	arm.spring_length = 5.8
 	arm.margin = 0.2
+	arm.collision_mask = 3
 	arm.add_excluded_object(get_rid())
 	mount.add_child(arm)
 	var camera := Camera3D.new()
@@ -191,5 +193,22 @@ func finish_throw(point: Vector3) -> void:
 	var motion := Vector3(point.x-global_position.x,0,point.z-global_position.z)
 	var collision := move_and_collide(motion,true)
 	if collision: motion = collision.get_travel()*0.90
-	global_position += motion
+	var candidate := global_position+motion
+	var probe := PhysicsRayQueryParameters3D.create(candidate+Vector3(0,4,0),candidate-Vector3(0,6,0))
+	probe.exclude = [get_rid()]
+	probe.collision_mask = 2
+	var floor_hit := get_world_3d().direct_space_state.intersect_ray(probe)
+	if floor_hit.is_empty() or floor_hit.normal.y<0.72:
+		message = "落点悬空或过陡，取消瞬移"
+		return
+	# Require body clearance above the proposed floor before changing position.
+	candidate.y = floor_hit.position.y+0.05
+	var body_probe := PhysicsShapeQueryParameters3D.new()
+	body_probe.shape = get_child(0).shape
+	body_probe.transform = Transform3D(Basis.IDENTITY,candidate+Vector3(0,0.9,0))
+	body_probe.exclude = [get_rid()]
+	if not get_world_3d().direct_space_state.intersect_shape(body_probe,1).is_empty():
+		message = "落点空间不足，取消瞬移"
+		return
+	global_position = candidate
 	message = "投掷命中落点，已移至安全位置" if motion.length()>0.5 else "落点受阻，武器收回"

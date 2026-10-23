@@ -2,6 +2,7 @@ extends Node3D
 const Visuals = preload("res://scripts/visuals.gd")
 const Hunter = preload("res://scripts/player.gd")
 const Monster = preload("res://scripts/monster.gd")
+const Terrain = preload("res://scripts/forest_terrain.gd")
 var hunter: CharacterBody3D
 var hud: Label
 
@@ -34,7 +35,7 @@ func _ready() -> void:
 	sun.light_energy = 1.3
 	sun.shadow_enabled = true
 	add_child(sun)
-	obstacle(Vector3(0,-0.5,0),Vector3(120,1,120),Color("344d39"))
+	add_child(Terrain.new())
 	for side in [-1,1]:
 		obstacle(Vector3(side*60,4,0),Vector3(1,8,120),Color("3f5348"))
 		obstacle(Vector3(0,4,side*60),Vector3(120,8,1),Color("3f5348"))
@@ -47,13 +48,24 @@ func _ready() -> void:
 		for encounter in positions:
 			if pos.distance_to(encounter)<9: clearing = true
 		if clearing: continue
+		pos.y = Terrain.height_at(pos.x,pos.z)
 		var height := rng.randf_range(7,13)
 		obstacle(pos+Vector3(0,height/2,0),Vector3(0.65,height,0.65),Color("4b5040"))
 		Visuals.piece(self,pos+Vector3(0,height,0),Vector3(6,4,6),Color("365c43"),true)
 		Visuals.piece(self,pos+Vector3(1,height-2,0),Vector3(5,3,5),Color("3c6748"),true)
 	for i in 65:
 		var pos := Vector3(rng.randf_range(-55,55),0,rng.randf_range(-55,55))
+		pos.y = Terrain.height_at(pos.x,pos.z)
 		if absf(pos.x)>7: Visuals.piece(self,pos+Vector3(0,0.25,0),Vector3(1.5,0.5,1.4),Color("4d7351"),true)
+	for i in 24:
+		var pos := Vector3(rng.randf_range(-55,55),0,rng.randf_range(-55,55))
+		var safe := absf(pos.x)>13
+		for encounter in positions:
+			if pos.distance_to(encounter)<10: safe = false
+		if not safe or absf(pos.x-41)<5: continue
+		pos.y = Terrain.height_at(pos.x,pos.z)
+		var radius := rng.randf_range(0.8,1.7)
+		obstacle(pos+Vector3(0,radius*0.45,0),Vector3(radius*1.8,radius,radius*1.5),Color("5a665e"))
 	hunter = Hunter.new()
 	hunter.position = Vector3(0,1,8)
 	add_child(hunter)

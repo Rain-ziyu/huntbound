@@ -32,10 +32,11 @@ func run() -> void:
 		if shot.finished: break
 		shot._physics_process(0.025)
 	check(shot.finished and m.health<hp,"flight ray collides and damages creature")
+	if p.global_position.z >= -10: print("LANDING_DIAGNOSTIC: ",p.message," at ",p.global_position)
 	check(p.global_position.z < -10 and p.global_position.z > -16,"arrival stops before monster capsule")
 	await process_frame
 	world.obstacle(Vector3(10,2,2),Vector3(8,4,0.5),Color.GRAY)
-	p.global_position = Vector3(10,0.05,8)
+	p.global_position = Vector3(10,preload("res://scripts/forest_terrain.gd").height_at(10,8)+0.05,8)
 	await physics_frame
 	p.finish_throw(Vector3(10,0,-10))
 	check(p.global_position.z>2.3,"capsule sweep prevents wall crossing")

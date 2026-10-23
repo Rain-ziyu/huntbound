@@ -16,6 +16,7 @@ var disrupted := 0.0
 var exposed := 0.0
 
 func _ready() -> void:
+	collision_mask = 3
 	health = float(data.health)
 	var collider := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
@@ -117,7 +118,7 @@ func spawn_hazard(point: Vector3, radius: float, duration: float, amount: float,
 	hazard.kind = kind
 	hazard.interval = 0.8 if kind=="mist" else 2.0
 	get_parent().add_child(hazard)
-	hazard.global_position = Vector3(point.x,0.05,point.z)
+	hazard.global_position = Vector3(point.x,preload("res://scripts/forest_terrain.gd").height_at(point.x,point.z)+0.05,point.z)
 
 func receive_strike(amount: float, origin: Vector3, action: String) -> Dictionary:
 	if health <= 0: return {"hit":false}
