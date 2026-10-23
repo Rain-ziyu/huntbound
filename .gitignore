@@ -1,0 +1,22 @@
+# Godot generated cache; commit source assets and UID sidecars.
+.godot/
+*.translation
+
+# Exported builds and local data.
+/builds/*
+!/builds/.gitkeep
+/logs/
+*.log
+.env
+.env.*
+!.env.example
+export_credentials.cfg
+*.pfx
+*.p12
+
+# Local tooling and editor preferences.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+node_modules/
