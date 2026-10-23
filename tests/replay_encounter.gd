@@ -7,6 +7,7 @@ var fighter: CharacterBody3D
 var monster: CharacterBody3D
 var last_attack := "heavy"
 var result_saved := false
+var controller_name := "stationary_guard"
 
 func _initialize() -> void: call_deferred("setup")
 func setup() -> void:
@@ -33,8 +34,8 @@ func control() -> void:
 	var c = fighter.combat
 	if c.health<=0 or monster.health<=0 or elapsed>=120:
 		result_saved = true
-		var result := {"species":monster.data.id,"simulation_seconds":snappedf(elapsed,0.01),"player_health":c.health,"monster_health":monster.health,"actions":decisions,"outcome":"victory" if monster.health<=0 else ("defeat" if c.health<=0 else "timeout"),"scope":"state-aware deterministic controller; no human difficulty or animation approval"}
-		var file := FileAccess.open("res://../Shubian-encounter-"+str(monster.data.id)+".json",FileAccess.WRITE)
+		var result := {"species":monster.data.id,"controller":controller_name,"simulation_seconds":snappedf(elapsed,0.01),"player_health":c.health,"monster_health":monster.health,"actions":decisions,"outcome":"victory" if monster.health<=0 else ("defeat" if c.health<=0 else "timeout"),"scope":"state-aware deterministic controller; no human difficulty or animation approval"}
+		var file := FileAccess.open("res://../Shubian-encounter-"+controller_name+"-"+str(monster.data.id)+".json",FileAccess.WRITE)
 		file.store_string(JSON.stringify(result,"  "))
 		print("ENCOUNTER_REPLAY: ",JSON.stringify(result))
 		quit()

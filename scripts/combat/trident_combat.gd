@@ -107,7 +107,7 @@ func advance(delta: float) -> void:
 	if elapsed >= float(data.duration):
 		set_action("wait" if current == "plant" else "idle")
 
-func receive_damage(amount: float, blockable := true, in_front := true) -> String:
+func receive_damage(amount: float, blockable := true, in_front := true, interrupt := true) -> String:
 	if health <= 0: return "dead"
 	if action == "counter_window":
 		set_action("finisher")
@@ -120,6 +120,7 @@ func receive_damage(amount: float, blockable := true, in_front := true) -> Strin
 		return "guarded"
 	health = maxf(0, health - amount)
 	if action == "spin" and health > 0: return "armored"
+	if not interrupt and health>0: return "ongoing"
 	set_action("hurt")
 	guard_reward = 0
 	flash_window = 0

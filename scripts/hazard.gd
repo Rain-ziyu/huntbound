@@ -30,7 +30,7 @@ func _physics_process(delta: float) -> void:
 	clock -= delta
 	if clock<=0:
 		clock += interval
-		if contains_target(): target.take_damage(damage,global_position,false)
+		if contains_target(): target.take_damage(damage,global_position,false,kind!="mist")
 
 func contains_target() -> bool:
 	if not is_instance_valid(target) or target.combat.health<=0: return false

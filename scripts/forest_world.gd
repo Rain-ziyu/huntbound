@@ -5,8 +5,10 @@ const Monster = preload("res://scripts/monster.gd")
 const Terrain = preload("res://scripts/forest_terrain.gd")
 var hunter: CharacterBody3D
 var hud: Label
+var navigation = preload("res://scripts/forest_navigation.gd").new()
 
 func obstacle(pos: Vector3, size: Vector3, color: Color) -> void:
+	navigation.add_obstacle(pos,size)
 	var body := StaticBody3D.new()
 	add_child(body)
 	body.position = pos

@@ -75,5 +75,10 @@ func _initialize() -> void:
 	c.request("fourfold")
 	c.advance(1.24)
 	check(hits == [0,1,2,3], "four distinct beats even across large delta")
+	c.health = 240
+	c.set_action("light")
+	check(c.receive_damage(9,false,true,false)=="ongoing" and c.action=="light" and c.health==231,"poison drains health without repeated stagger lock")
+	c.receive_damage(300,false,true,false)
+	check(c.health==0 and c.action=="hurt","periodic damage remains lethal")
 	print("COMBAT_CHECKS: ", checks, " FAILURES: ", failed)
 	quit(1 if failed else 0)

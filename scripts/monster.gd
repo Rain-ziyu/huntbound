@@ -4,6 +4,8 @@ const Hazard = preload("res://scripts/hazard.gd")
 const CreatureModel = preload("res://scripts/creature_model.gd")
 const Parts = preload("res://scripts/monster_parts.gd")
 var armor_integrity := 200.0
+var route := PackedVector3Array()
+var route_time := 0.0
 var gait := 0.0
 var weak_marker: MeshInstance3D
 var data: Dictionary
@@ -83,13 +85,23 @@ func _physics_process(delta: float) -> void:
 	offset.y = 0
 	var distance := offset.length()
 	clock += delta
+	route_time -= delta
 	velocity.x = 0
 	velocity.z = 0
 	if phase == "idle":
 		if distance < 20 and target.combat.health > 0:
-			if distance > float(data.reach)*0.82:
-				rotation.y = lerp_angle(rotation.y,atan2(-offset.x,-offset.z),delta*2.5)
-				velocity += offset.normalized()*float(data.speed)
+			if distance > float(data.reach)*0.82 or not clear_line_to(target.global_position):
+				if route_time<=0:
+					route = get_parent().navigation.path(global_position,target.global_position,float(data.size)*0.34)
+					route_time = 0.6
+				while not route.is_empty() and Vector2(route[0].x-global_position.x,route[0].z-global_position.z).length()<0.75: route.remove_at(0)
+				var chase := Vector3.ZERO
+				if not route.is_empty():
+					chase = route[0]-global_position
+					chase.y = 0
+					chase = chase.normalized()
+				rotation.y = lerp_angle(rotation.y,atan2(-chase.x,-chase.z),delta*2.5)
+				velocity += chase*float(data.speed)
 			else:
 				phase = "windup"
 				clock = 0

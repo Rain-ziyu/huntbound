@@ -20,6 +20,13 @@ var pose_from := Transform3D.IDENTITY
 var pose_blend := 1.0
 
 func _ready() -> void:
+	var keys := {"move_forward":KEY_W,"move_back":KEY_S,"move_left":KEY_A,"move_right":KEY_D,"sprint":KEY_SHIFT}
+	for label in keys:
+		if not InputMap.has_action(label):
+			InputMap.add_action(label)
+			var binding := InputEventKey.new()
+			binding.physical_keycode = keys[label]
+			InputMap.action_add_event(label,binding)
 	collision_mask = 3
 	var col := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
@@ -98,13 +105,10 @@ func _physics_process(delta: float) -> void:
 	if heavy_held>=0: heavy_held += delta
 	combat.advance(delta)
 	if is_instance_valid(lock_target) and lock_target.health<=0: lock_target = null
-	var input := Vector3.ZERO
-	if Input.is_physical_key_pressed(KEY_W): input.z -= 1
-	if Input.is_physical_key_pressed(KEY_S): input.z += 1
-	if Input.is_physical_key_pressed(KEY_A): input.x -= 1
-	if Input.is_physical_key_pressed(KEY_D): input.x += 1
+	var axis := Input.get_vector("move_left","move_right","move_forward","move_back")
+	var input := Vector3(axis.x,0,axis.y)
 	var direction := input.normalized().rotated(Vector3.UP,yaw)
-	var speed := 6.3 if Input.is_physical_key_pressed(KEY_SHIFT) else 4.5
+	var speed := 6.3 if Input.is_action_pressed("sprint") else 4.5
 	if combat.action!="idle": speed *= 0.22
 	if combat.action in ["plant","wait","counter_window","hurt"] or combat.health<=0: speed = 0
 	velocity.x = direction.x*speed
@@ -166,10 +170,11 @@ func animate(delta: float, speed: float) -> void:
 	for i in ghosts.size(): ghosts[i].visible = i<combat.shadow_lifetimes.size()
 	HunterModel.pose_arms(rig,combat.drawn and not is_instance_valid(projectile),walk_clock)
 
-func take_damage(amount: float, origin: Vector3, blockable: bool) -> void:
+func take_damage(amount: float, origin: Vector3, blockable: bool, interrupt := true) -> void:
 	var direction := (origin-global_position).normalized()
-	var result: String = combat.receive_damage(amount,blockable,direction.dot(-rig.root.global_basis.z)>0.15)
+	var result: String = combat.receive_damage(amount,blockable,direction.dot(-rig.root.global_basis.z)>0.15,interrupt)
 	message = {"counter":"反击成功！旋转踢击，不消耗枪影。","guarded":"格挡成功：左键反击，再 Ctrl+左键闪刺。","immune":"免伤","armored":"霸体承伤：动作继续","hurt":"受击！注意预警与站位。"}.get(result,result)
+	if result=="ongoing": message = "毒雾持续伤害：离开绿色区域！"
 
 func on_strike(_beat: int) -> void:
 	var action: String = combat.action
