@@ -1,6 +1,7 @@
 extends CharacterBody3D
 const Combat = preload("res://scripts/combat/trident_combat.gd")
 const Visuals = preload("res://scripts/visuals.gd")
+const Projectile = preload("res://scripts/trident_projectile.gd")
 var combat = Combat.new()
 var rig: Dictionary
 var mount: Node3D
@@ -11,6 +12,7 @@ var heavy_held := -1.0
 var lock_target: Node3D
 var message := "观察金色预警后躲避或格挡。"
 var ghosts: Array[Node3D] = []
+var projectile: Node3D
 
 func _ready() -> void:
 	var col := CollisionShape3D.new()
@@ -42,6 +44,9 @@ func _ready() -> void:
 		ghosts.append(ghost)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if is_instance_valid(projectile):
+		if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]: return
+		if event is InputEventKey and (event.physical_keycode in [KEY_Q,KEY_E,KEY_R] or (event.physical_keycode==KEY_SPACE and event.ctrl_pressed)): return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		yaw -= event.relative.x*0.003
 		pitch = clampf(pitch-event.relative.y*0.0025,-0.9,0.25)
@@ -122,7 +127,7 @@ func animate(delta: float, speed: float) -> void:
 		rig.joints["leg"+str(side)].rotation.x = sin(walk_clock)*side*minf(speed*0.1,0.45)
 		rig.joints["arm"+str(side)].rotation.x = -0.85 if combat.drawn else -sin(walk_clock)*side*minf(speed*0.08,0.3)
 	var w: Node3D = rig.weapon
-	w.visible = true
+	w.visible = not is_instance_valid(projectile)
 	w.position = Vector3(0.24,1.05,-0.45) if combat.drawn else Vector3(0,1.05,0.26)
 	w.rotation = Vector3(-PI/2,0,-0.15) if combat.drawn else Vector3(0,0,0.35)
 	if combat.action!="idle":
@@ -153,6 +158,17 @@ func take_damage(amount: float, origin: Vector3, blockable: bool) -> void:
 
 func on_strike(_beat: int) -> void:
 	var action: String = combat.action
+	if action=="throw":
+		if is_instance_valid(projectile): return
+		var shot := Projectile.new()
+		shot.shooter = self
+		shot.direction = -rig.root.global_basis.z
+		shot.amount = combat.damage()
+		projectile = shot
+		get_parent().add_child(shot)
+		shot.global_position = global_position+Vector3(0,1.1,0)
+		shot.look_at(shot.global_position+shot.direction)
+		return
 	var reach: float = Combat.MOVES[action].reach
 	var hit := false
 	for m in get_tree().get_nodes_in_group("monsters"):
@@ -166,9 +182,14 @@ func on_strike(_beat: int) -> void:
 				hit = true
 				combat.confirm_hit()
 				message = ("弱点！ " if result.weak else "命中 ")+str(roundi(result.damage))
-	if action=="throw":
-		var motion: Vector3 = -rig.root.global_basis.z*(10 if not hit else 6)
-		var collision := move_and_collide(motion,true)
-		if collision: motion = collision.get_travel()*0.90
-		global_position += motion
-		message = "投掷后移至安全落点" if motion.length()>0.5 else "落点受阻"
+
+func finish_throw(point: Vector3) -> void:
+	projectile = null
+	if combat.health<=0 or combat.action=="hurt":
+		message = "投掷被打断，武器收回"
+		return
+	var motion := Vector3(point.x-global_position.x,0,point.z-global_position.z)
+	var collision := move_and_collide(motion,true)
+	if collision: motion = collision.get_travel()*0.90
+	global_position += motion
+	message = "投掷命中落点，已移至安全位置" if motion.length()>0.5 else "落点受阻，武器收回"

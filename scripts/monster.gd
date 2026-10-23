@@ -1,5 +1,6 @@
 extends CharacterBody3D
 const Visuals = preload("res://scripts/visuals.gd")
+const Hazard = preload("res://scripts/hazard.gd")
 var data: Dictionary
 var target: CharacterBody3D
 var health := 0.0
@@ -71,6 +72,7 @@ func _physics_process(delta: float) -> void:
 				attack_done = false
 	elif phase == "windup":
 		tell.visible = true
+		tell.material_override = Visuals.mat(Color("71cce4") if data.pattern=="pulse" else (Color("93ae55") if data.pattern=="mist" else Color("c39a55")))
 		if clock < float(data.windup)*0.7:
 			target_point = target.global_position
 			rotation.y = lerp_angle(rotation.y,atan2(-offset.x,-offset.z),delta*2)
@@ -79,12 +81,19 @@ func _physics_process(delta: float) -> void:
 			phase = "active"
 			clock = 0
 	elif phase == "active":
+		if data.pattern=="mist" and not attack_done:
+			attack_done = true
+			spawn_hazard(target_point,4.0,6.0,9.0,"mist")
+		elif data.pattern=="pulse" and not attack_done:
+			attack_done = true
+			spawn_hazard(global_position,float(data.reach),0.7,float(data.damage),"pulse")
 		if data.pattern in ["charge","leap"]:
 			var direction := (target_point-global_position).normalized()
 			direction.y = 0
 			velocity += direction*(13 if data.pattern == "charge" else 10)
 		if not attack_done:
-			if distance < float(data.reach) and (data.pattern not in ["charge","leap"] or distance < 3.8):
+			var forward := offset.normalized().dot(-global_basis.z)>-0.15
+			if distance < float(data.reach) and forward and (data.pattern not in ["charge","leap"] or distance < 3.8):
 				attack_done = true
 				target.take_damage(float(data.damage),global_position,data.pattern not in ["mist","pulse"])
 		if clock > 0.65:
@@ -98,6 +107,17 @@ func _physics_process(delta: float) -> void:
 			phase = "idle"
 			clock = 0
 	move_and_slide()
+
+func spawn_hazard(point: Vector3, radius: float, duration: float, amount: float, kind: String) -> void:
+	var hazard := Hazard.new()
+	hazard.target = target
+	hazard.radius = radius
+	hazard.lifetime = duration
+	hazard.damage = amount
+	hazard.kind = kind
+	hazard.interval = 0.8 if kind=="mist" else 2.0
+	get_parent().add_child(hazard)
+	hazard.global_position = Vector3(point.x,0.05,point.z)
 
 func receive_strike(amount: float, origin: Vector3, action: String) -> Dictionary:
 	if health <= 0: return {"hit":false}
