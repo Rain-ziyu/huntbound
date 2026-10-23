@@ -146,7 +146,6 @@ func animate(delta: float, speed: float) -> void:
 		pose_blend = 0.0
 	walk_clock += delta*speed*2.6
 	for side in [-1,1]:
-		rig.joints["leg"+str(side)].rotation.x = sin(walk_clock)*side*minf(speed*0.1,0.45)
 		rig.joints["arm"+str(side)].rotation.x = -0.85 if combat.drawn else -sin(walk_clock)*side*minf(speed*0.08,0.3)
 	var w: Node3D = rig.weapon
 	w.visible = not is_instance_valid(projectile)
@@ -168,7 +167,6 @@ func animate(delta: float, speed: float) -> void:
 				w.rotation.x += 0.12
 			"heavy","turn","spin","finisher":
 				w.rotation.y = -1.5+p*(TAU if combat.action in ["turn","spin","finisher"] else 3)
-				if combat.action=="finisher" and p>0.55: rig.joints["leg1"].rotation.x = -sin((p-0.55)/0.45*PI)*1.3
 			"guard","reply":
 				w.rotation.y = clampf(t/0.18,0,1)*PI
 				w.position.z += 0.55
@@ -181,6 +179,7 @@ func animate(delta: float, speed: float) -> void:
 		pose_blend = minf(1,pose_blend+delta/0.10)
 		w.transform = pose_from.interpolate_with(w.transform,smoothstep(0,1,pose_blend))
 	for i in ghosts.size(): ghosts[i].visible = i<combat.shadow_lifetimes.size()
+	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta)
 	HunterModel.pose_arms(rig,combat.drawn and not is_instance_valid(projectile),walk_clock)
 
 func take_damage(amount: float, origin: Vector3, blockable: bool, interrupt := true) -> void:
@@ -230,7 +229,7 @@ func weapon_contact_points(action: String, beat: int) -> PackedVector3Array:
 	var points := PackedVector3Array()
 	if action=="finisher" and beat==1:
 		# Use the kicking foot rather than granting another full circular weapon hit.
-		points.append(rig.joints["leg1"].to_global(Vector3(0,-0.83,-0.18)))
+		points.append(rig.legs[1].ankle.to_global(Vector3(0,-0.025,-0.18)))
 	elif action=="reply":
 		for y in [-0.98,-0.88]: points.append(rig.weapon.to_global(Vector3(0,y,0)))
 	else:

@@ -26,7 +26,14 @@ func run() -> void:
 			for weight in arrays[Mesh.ARRAY_WEIGHTS]: sum += weight
 			check(is_equal_approx(sum,float(arrays[Mesh.ARRAY_VERTEX].size())),"weights normalized")
 			bound += 1
-	check(bound>20 and descendants>=4,"arm hand hierarchy and bound meshes")
+	check(bound>20 and descendants>=8,"arm hand and leg foot hierarchy with bound meshes")
+	for side in ["Left","Right"]:
+		var thigh := skeleton.find_bone(side+"Thigh")
+		var shin := skeleton.find_bone(side+"Shin")
+		var foot := skeleton.find_bone(side+"Foot")
+		check(thigh>=0 and shin>=0 and foot>=0,"saved anatomical leg bone names")
+		if thigh>=0 and shin>=0 and foot>=0:
+			check(skeleton.get_bone_parent(shin)==thigh and skeleton.get_bone_parent(foot)==shin,"saved thigh shin foot hierarchy")
 	var player := model.get_node("AnimationPreview") as AnimationPlayer
 	check(player.get_animation_list().size()==17,"all seventeen preview clips saved")
 	player.play("heavy")
@@ -35,6 +42,12 @@ func run() -> void:
 	player.advance(0.45)
 	var after: Quaternion = model.get_node("Trident").quaternion
 	check(before.angle_to(after)>0.1,"saved clip actually animates the weapon")
+	player.play("finisher")
+	player.advance(0.95)
+	var foot_bone := skeleton.find_bone("RightFoot")
+	if foot_bone>=0:
+		var foot_pose := skeleton.get_bone_global_pose(foot_bone)
+		check(foot_pose.origin.z< -0.6 and foot_pose.origin.y>0.6,"saved finisher actually raises and extends kicking foot")
 	print("SKIN_CHECKS: ",checks," FAILURES: ",failures)
 	model.queue_free()
 	await process_frame

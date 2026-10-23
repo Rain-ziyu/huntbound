@@ -14,11 +14,18 @@ static func bind(rig: Dictionary) -> Dictionary:
 	var bindings := []
 	var indices := {}
 	var rests := {}
+	var labels := {}
+	for side in [-1,1]:
+		var prefix := "Left" if side==-1 else "Right"
+		var arm: Dictionary = rig.arms[side]
+		var leg: Dictionary = rig.legs[side]
+		for item in [[arm.upper,"UpperArm"],[arm.lower,"Forearm"],[arm.hand,"Hand"],[leg.thigh,"Thigh"],[leg.shin,"Shin"],[leg.boot,"Foot"]]:
+			labels[item[0].get_instance_id()] = prefix+item[1]
 	for i in sources.size():
 		var source := sources[i]
 		var global_rest := relative_transform(source,root)
 		var rest := Transform3D(global_rest.basis.orthonormalized(),global_rest.origin)
-		var bone := skeleton.add_bone("Part_%02d" % i)
+		var bone := skeleton.add_bone(labels.get(source.get_instance_id(),"Part_%02d" % i))
 		skeleton.set_bone_parent(bone,0)
 		skeleton.set_bone_rest(bone,rest)
 		skeleton.set_bone_pose_position(bone,rest.origin)
@@ -59,6 +66,18 @@ static func bind(rig: Dictionary) -> Dictionary:
 		var lower: int = indices[arm.lower.get_instance_id()]
 		var hand: int = indices[arm.hand.get_instance_id()]
 		for pair in [[lower,upper],[hand,lower]]:
+			var child: int = pair[0]
+			var parent: int = pair[1]
+			var local: Transform3D = rests[parent].affine_inverse()*rests[child]
+			skeleton.set_bone_parent(child,parent)
+			skeleton.set_bone_rest(child,local)
+			skeleton.set_bone_pose_position(child,local.origin)
+			skeleton.set_bone_pose_rotation(child,local.basis.get_rotation_quaternion())
+		var leg: Dictionary = rig.legs[side]
+		var thigh: int = indices[leg.thigh.get_instance_id()]
+		var shin: int = indices[leg.shin.get_instance_id()]
+		var boot: int = indices[leg.boot.get_instance_id()]
+		for pair in [[shin,thigh],[boot,shin]]:
 			var child: int = pair[0]
 			var parent: int = pair[1]
 			var local: Transform3D = rests[parent].affine_inverse()*rests[child]

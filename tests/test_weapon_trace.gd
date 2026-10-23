@@ -53,7 +53,7 @@ func run() -> void:
 	check(butt[0].distance_to(p.rig.weapon.to_global(Vector3(0,-0.98,0)))<0.001,"reply traces butt end")
 	check(butt[0].distance_to(p.rig.weapon.to_global(Vector3(0,1.2,0)))>2,"reply does not trace forward prongs")
 	var foot: PackedVector3Array = p.weapon_contact_points("finisher",1)
-	check(foot.size()==1 and foot[0].distance_to(p.rig.joints["leg1"].to_global(Vector3(0,-0.83,-0.18)))<0.001,"finisher second beat uses foot")
+	check(foot.size()==1 and foot[0].distance_to(p.rig.legs[1].ankle.to_global(Vector3(0,-0.025,-0.18)))<0.001,"finisher second beat uses foot")
 	p.combat.set_action("fourfold")
 	m.global_position = Vector3(0,0,-2)
 	hp = m.health
@@ -76,7 +76,7 @@ func run() -> void:
 	p.pitch = 0.65
 	p.animate(0,0)
 	var raised_tip: Vector3 = p.weapon_contact_points("light",0)[0]
-	check(raised_tip.y>2.2,"looking upward raises actual thrust tip")
+	check(raised_tip.y>2.1,"looking upward raises actual thrust tip above crouched stance")
 	p.on_strike(0)
 	p.update_weapon_contacts()
 	check(storm.disrupted>0,"raised visible tip can hit charged spine from close rear position")

@@ -21,15 +21,16 @@ func run() -> void:
 	label.position = Vector2(24,24)
 	label.add_theme_font_size_override("font_size",26)
 	layer.add_child(label)
-	for action in ["heavy","reply","pull"]:
+	for action in ["heavy","reply","pull","finisher"]:
 		var markers := Node3D.new()
 		world.add_child(markers)
 		p.combat.set_action(action)
-		var hit: float = p.Combat.MOVES[action].hits[0]
+		var beat := 1 if action=="finisher" else 0
+		var hit: float = p.Combat.MOVES[action].hits[beat]
 		for sample in 13:
 			p.combat.elapsed = hit+sample*0.01
 			p.animate(0,0)
-			for point in p.weapon_contact_points(action,0):
+			for point in p.weapon_contact_points(action,beat):
 				p.Visuals.piece(markers,point,Vector3.ONE*0.035,Color("eac46b") if action=="reply" else Color("77ded1"),true)
 		p.combat.elapsed = hit+0.06
 		p.animate(0,0)
