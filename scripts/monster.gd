@@ -217,5 +217,7 @@ func receive_strike(amount: float, origin: Vector3, action: String, part := "") 
 	elif action == "pull":
 		velocity += toward*4
 		stagger = maxf(stagger,0.30)
-	elif action == "reply": stagger = maxf(stagger,0.45)
+	elif action == "reply":
+		velocity += -toward*5
+		stagger = maxf(stagger,0.45)
 	return {"hit":true,"weak":weak,"damage":amount*factor,"part":part if part!="" else "legacy-direction","armor_broken":armor_integrity<=0}

@@ -1,4 +1,5 @@
 extends CharacterBody3D
+signal hit_confirmed(action: String, beat: int, target: Node3D, result: Dictionary)
 const Combat = preload("res://scripts/combat/trident_combat.gd")
 const Visuals = preload("res://scripts/visuals.gd")
 const Projectile = preload("res://scripts/trident_projectile.gd")
@@ -264,6 +265,7 @@ func update_weapon_contacts() -> void:
 			if result.hit:
 				combat.confirm_hit()
 				show_hit_feedback(contact.point,result)
+				hit_confirmed.emit(window.action,window.beat,m,result)
 				message = ("弱点！ " if result.weak else "命中 ")+str(roundi(result.damage))+" · "+str(result.part)
 		window.previous = points
 

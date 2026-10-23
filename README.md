@@ -67,4 +67,13 @@ WASD 移动，鼠标转视角，Shift 奔跑，空格闪避，中键锁定，Esc
 & 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/test_world.gd
 ```
 
+真实单敌连携与承伤回放（固定 60 FPS，失败返回非零退出码）：
+
+```powershell
+& 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --headless --fixed-fps 60 --path . --script res://tests/replay_weapon_sequence.gd
+& 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --headless --fixed-fps 60 --path . --script res://tests/replay_interruptions.gd
+```
+
+回放读取内部状态并自动选择时机，使用实际移动、动作请求、巨兽伤害和武器接触，不能代表人工难度验收。详细事件报告输出到项目父目录的 `Shubian-weapon-sequence.json` 与 `Shubian-interruptions.json`。
+
 规则检查和场景集成检查不代表实际操作手感、美术、碰撞精度或完整对战已经验收。
