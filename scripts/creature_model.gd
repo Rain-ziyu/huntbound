@@ -29,7 +29,8 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 		V.piece(tail,Vector3(0,-s*i*0.015,s*i*0.20),Vector3(width,width,s*0.30),c,true)
 	if data.id=="mossback":
 		for i in 5:
-			V.piece(root,Vector3(0,y+s*0.27,(i-2)*s*0.18),Vector3(s*0.70,s*0.16,s*0.22),c.darkened(0.28),true)
+			var plate := V.piece(root,Vector3(0,y+s*0.27,(i-2)*s*0.18),Vector3(s*0.70,s*0.16,s*0.22),c.darkened(0.28),true)
+			plate.name = "ArmorPlate"+str(i)
 	elif data.id=="thornhorn":
 		for side in [-1,1]:
 			var horn := H.tapered(neck,Vector3(side*s*0.17,s*0.43,-s*0.36),0.005,s*0.065,s*0.46,Color("c4b89a"))

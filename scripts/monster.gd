@@ -2,6 +2,8 @@ extends CharacterBody3D
 const Visuals = preload("res://scripts/visuals.gd")
 const Hazard = preload("res://scripts/hazard.gd")
 const CreatureModel = preload("res://scripts/creature_model.gd")
+const Parts = preload("res://scripts/monster_parts.gd")
+var armor_integrity := 200.0
 var gait := 0.0
 var weak_marker: MeshInstance3D
 var data: Dictionary
@@ -31,6 +33,7 @@ func _ready() -> void:
 	mesh = CreatureModel.create(self,data)
 	var s: float = data.size
 	var marker_pos := Vector3(0,s*0.58,s*0.48)
+	if data.id=="stormcrest": marker_pos = Vector3(0,s*1.12,s*0.15)
 	if data.weak_side=="front": marker_pos = Vector3(0,s*0.78,-s*0.70)
 	elif data.weak_side=="flank": marker_pos = Vector3(s*0.37,s*0.58,0)
 	weak_marker = Visuals.piece(mesh,marker_pos,Vector3(0.22,0.22,0.22),Color("e6c57c"),true)
@@ -56,6 +59,7 @@ func _physics_process(delta: float) -> void:
 		return
 	label.text = "%s  %d/%d\n%s" % [data.name,ceili(health),int(data.health),data.weakness]
 	weak_marker.visible = data.weak_side=="rear" or (data.weak_side=="front" and phase=="windup") or (data.weak_side=="flank" and exposed>0)
+	if data.id=="stormcrest": weak_marker.visible = phase=="windup"
 	stagger = maxf(0,stagger-delta)
 	exposed = maxf(0,exposed-delta)
 	if not is_on_floor(): velocity.y -= 25*delta
@@ -152,12 +156,20 @@ func clear_line_to(point: Vector3) -> bool:
 	query.exclude = [get_rid(),target.get_rid()]
 	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
 
-func receive_strike(amount: float, origin: Vector3, action: String) -> Dictionary:
+func receive_strike(amount: float, origin: Vector3, action: String, part := "") -> Dictionary:
 	if health <= 0: return {"hit":false}
 	var toward := (origin-global_position).normalized()
 	var dot_front := toward.dot(-global_basis.z)
 	var weak: bool = (data.weak_side == "rear" and dot_front < -0.3) or (data.weak_side == "flank" and absf(dot_front)<0.65 and exposed>0) or (data.weak_side == "front" and dot_front>0.2 and phase=="windup")
-	var factor := float(data.weak_multiplier) if weak else (float(data.front_armor) if dot_front > 0.4 else 1.0)
+	if part!="":
+		weak = (data.weak_side=="rear" and part=="tail") or (data.weak_side=="flank" and part=="flank" and exposed>0) or (data.weak_side=="front" and part=="head" and phase=="windup")
+		if data.id=="stormcrest": weak = part=="spine" and phase=="windup"
+	var factor := float(data.weak_multiplier) if weak else (float(data.front_armor) if dot_front > 0.4 and armor_integrity>0 else 1.0)
+	if data.id=="mossback" and part=="body": armor_integrity = maxf(0,armor_integrity-amount)
+	if data.id=="mossback" and armor_integrity<=0:
+		for i in 5:
+			var plate := mesh.get_node_or_null("ArmorPlate"+str(i)) as MeshInstance3D
+			if plate: plate.visible = false
 	health = maxf(0,health-amount*factor)
 	if weak and data.id == "mistfrill" and phase == "windup": stagger = 1.8
 	if weak and data.id == "stormcrest" and phase == "windup":
@@ -173,4 +185,4 @@ func receive_strike(amount: float, origin: Vector3, action: String) -> Dictionar
 		velocity += toward*4
 		stagger = maxf(stagger,0.30)
 	elif action == "reply": stagger = maxf(stagger,0.45)
-	return {"hit":true,"weak":weak,"damage":amount*factor}
+	return {"hit":true,"weak":weak,"damage":amount*factor,"part":part if part!="" else "legacy-direction","armor_broken":armor_integrity<=0}

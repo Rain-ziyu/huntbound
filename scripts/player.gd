@@ -3,6 +3,7 @@ const Combat = preload("res://scripts/combat/trident_combat.gd")
 const Visuals = preload("res://scripts/visuals.gd")
 const Projectile = preload("res://scripts/trident_projectile.gd")
 const HunterModel = preload("res://scripts/hunter_model.gd")
+const Parts = preload("res://scripts/monster_parts.gd")
 var combat = Combat.new()
 var rig: Dictionary
 var mount: Node3D
@@ -191,14 +192,25 @@ func on_strike(_beat: int) -> void:
 		var angle: float = offset.normalized().dot(-rig.root.global_basis.z)
 		var broad := action in ["heavy","turn","spin","finisher"]
 		if offset.length() <= reach+float(m.data.size)*0.30 and (broad or angle>0.55):
+			var contact := {}
+			var origin := global_position+Vector3(0,1.15,0)
+			var count := 9 if broad else 1
+			for sample in count:
+				var arc := PI if action in ["spin","finisher"] else 1.5
+				var turn := lerpf(-arc,arc,float(sample)/8.0) if broad else 0.0
+				var direction: Vector3 = (-rig.root.global_basis.z).rotated(Vector3.UP,turn)
+				if action in ["light","flash","fourfold"]: direction = (direction+Vector3.UP*0.25).normalized()
+				var candidate: Dictionary = Parts.cast(m,origin,direction,reach)
+				if not candidate.is_empty() and (contact.is_empty() or candidate.distance<contact.distance): contact = candidate
+			if contact.is_empty(): continue
 			var query := PhysicsRayQueryParameters3D.create(global_position+Vector3.UP,m.global_position+Vector3.UP)
 			query.exclude = [get_rid(),m.get_rid()]
 			if not get_world_3d().direct_space_state.intersect_ray(query).is_empty(): continue
-			var result: Dictionary = m.receive_strike(combat.damage(),global_position,action)
+			var result: Dictionary = m.receive_strike(combat.damage(),global_position,action,contact.part)
 			if result.hit:
 				hit = true
 				combat.confirm_hit()
-				message = ("弱点！ " if result.weak else "命中 ")+str(roundi(result.damage))
+				message = ("弱点！ " if result.weak else "命中 ")+str(roundi(result.damage))+" · "+str(result.part)
 
 func finish_throw(point: Vector3) -> void:
 	projectile = null
