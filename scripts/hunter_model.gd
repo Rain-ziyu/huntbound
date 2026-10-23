@@ -1,5 +1,6 @@
 extends RefCounted
 const V = preload("res://scripts/visuals.gd")
+const Skinning = preload("res://scripts/hunter_skin.gd")
 
 static func tapered(parent: Node3D, pos: Vector3, top: float, bottom: float, height: float, color: Color) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
@@ -52,7 +53,16 @@ static func create(parent: Node3D) -> Dictionary:
 		V.piece(leg,Vector3(0,-0.60,-0.07),Vector3(0.14,0.26,0.08),armor)
 		V.piece(leg,Vector3(0,-0.83,-0.06),Vector3(0.18,0.15,0.30),dark,true)
 		joints["leg"+str(side)] = leg
-	return {"root":root,"joints":joints,"arms":arms,"weapon":V.trident(root)}
+	var rig := {"root":root,"joints":joints,"arms":arms,"weapon":V.trident(root)}
+	rig.weapon.name = "Trident"
+	pose_arms(rig,false,0)
+	rig.skinning = Skinning.bind(rig)
+	if ResourceLoader.exists("res://resources/animations/trident_library.tres"):
+		var player := AnimationPlayer.new()
+		player.name = "AnimationPreview"
+		root.add_child(player)
+		player.add_animation_library("",load("res://resources/animations/trident_library.tres"))
+	return rig
 
 static func segment(mesh: MeshInstance3D, start: Vector3, end: Vector3) -> void:
 	var axis := end-start
@@ -79,3 +89,4 @@ static func pose_arms(rig: Dictionary, armed: bool, gait: float) -> void:
 		segment(arm.upper,shoulder,elbow)
 		segment(arm.lower,elbow,target)
 		arm.hand.position = target
+	Skinning.update(rig)
