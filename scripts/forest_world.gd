@@ -97,6 +97,14 @@ func _process(_delta: float) -> void:
 	var c = hunter.combat
 	hud.text = "戍边 · 湿林战斗原型\n生命 %d / 240   耐力 %d   枪影 %d / 5\n动作：%s  %.2fs\n%s" % [int(c.health),int(c.stamina),c.shadow_lifetimes.size(),c.action,c.elapsed,hunter.message]
 	if c.health<=0: hud.text += "\n任务失败 · F5 重试"
+	var defeated := 0
+	for monster in get_tree().get_nodes_in_group("monsters"):
+		if monster.health<=0: defeated += 1
+	hud.text += "\n击退 %d / 5" % defeated
+	if defeated==5 and c.health>0: hud.text += "\n林地已清理 · F5 重新挑战"
+	if is_instance_valid(hunter.lock_target) and hunter.lock_target.health>0:
+		var m = hunter.lock_target
+		hud.text += "\n锁定：%s  %d/%d\n%s\n对策：%s" % [m.data.name,ceili(m.health),int(m.data.health),m.data.trait,m.data.weakness]
 
 func capture() -> void:
 	await get_tree().create_timer(1).timeout

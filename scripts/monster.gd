@@ -3,6 +3,7 @@ const Visuals = preload("res://scripts/visuals.gd")
 const Hazard = preload("res://scripts/hazard.gd")
 const CreatureModel = preload("res://scripts/creature_model.gd")
 var gait := 0.0
+var weak_marker: MeshInstance3D
 var data: Dictionary
 var target: CharacterBody3D
 var health := 0.0
@@ -28,6 +29,12 @@ func _ready() -> void:
 	collider.position.y = shape.height/2
 	add_child(collider)
 	mesh = CreatureModel.create(self,data)
+	var s: float = data.size
+	var marker_pos := Vector3(0,s*0.58,s*0.48)
+	if data.weak_side=="front": marker_pos = Vector3(0,s*0.78,-s*0.70)
+	elif data.weak_side=="flank": marker_pos = Vector3(s*0.37,s*0.58,0)
+	weak_marker = Visuals.piece(mesh,marker_pos,Vector3(0.22,0.22,0.22),Color("e6c57c"),true)
+	weak_marker.material_override = Visuals.mat(Color("e6c57c"),true)
 	tell = Visuals.piece(self,Vector3(0,0.05,0),Vector3(float(data.reach)*2,0.025,float(data.reach)*2),Color("b48848"),true)
 	tell.visible = false
 	label = Label3D.new()
@@ -40,11 +47,15 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if health <= 0:
+		collision_layer = 0
+		collision_mask = 0
+		weak_marker.visible = false
 		mesh.rotation.z = lerpf(mesh.rotation.z,1.35,delta*3)
 		tell.visible = false
 		label.text = str(data.name)+" 已击退"
 		return
 	label.text = "%s  %d/%d\n%s" % [data.name,ceili(health),int(data.health),data.weakness]
+	weak_marker.visible = data.weak_side=="rear" or (data.weak_side=="front" and phase=="windup") or (data.weak_side=="flank" and exposed>0)
 	stagger = maxf(0,stagger-delta)
 	exposed = maxf(0,exposed-delta)
 	if not is_on_floor(): velocity.y -= 25*delta
@@ -57,6 +68,13 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	if not is_instance_valid(target): return
+	if target.combat.health<=0:
+		phase = "idle"
+		tell.visible = false
+		velocity.x = 0
+		velocity.z = 0
+		move_and_slide()
+		return
 	var offset := target.global_position-global_position
 	offset.y = 0
 	var distance := offset.length()
@@ -73,6 +91,7 @@ func _physics_process(delta: float) -> void:
 				clock = 0
 				target_point = target.global_position
 				attack_done = false
+				disrupted = 0
 	elif phase == "windup":
 		tell.visible = true
 		tell.material_override.albedo_color = Color("71cce4") if data.pattern=="pulse" else (Color("93ae55") if data.pattern=="mist" else Color("c39a55"))

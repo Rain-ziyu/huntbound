@@ -147,7 +147,7 @@ func animate(delta: float, speed: float) -> void:
 			"light","flash","fourfold":
 				var pulse := sin(p*PI) if combat.action!="fourfold" else sin(p*PI*4)
 				w.position.z -= maxf(0,pulse)*0.15
-				w.rotation.x -= 0.18
+				w.rotation.x += 0.18
 			"heavy","turn","spin","finisher":
 				w.rotation.y = -1.5+p*(TAU if combat.action in ["turn","spin","finisher"] else 3)
 				if combat.action=="finisher" and p>0.55: rig.joints["leg1"].rotation.x = -sin((p-0.55)/0.45*PI)*1.3
