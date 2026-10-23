@@ -2,6 +2,7 @@ extends CharacterBody3D
 const Combat = preload("res://scripts/combat/trident_combat.gd")
 const Visuals = preload("res://scripts/visuals.gd")
 const Projectile = preload("res://scripts/trident_projectile.gd")
+const HunterModel = preload("res://scripts/hunter_model.gd")
 var combat = Combat.new()
 var rig: Dictionary
 var mount: Node3D
@@ -13,6 +14,9 @@ var lock_target: Node3D
 var message := "观察金色预警后躲避或格挡。"
 var ghosts: Array[Node3D] = []
 var projectile: Node3D
+var pose_action := ""
+var pose_from := Transform3D.IDENTITY
+var pose_blend := 1.0
 
 func _ready() -> void:
 	collision_mask = 3
@@ -23,7 +27,7 @@ func _ready() -> void:
 	col.shape = shape
 	col.position.y = 0.9
 	add_child(col)
-	rig = Visuals.hunter(self)
+	rig = HunterModel.create(self)
 	mount = Node3D.new()
 	get_parent().add_child.call_deferred(mount)
 	var arm := SpringArm3D.new()
@@ -124,13 +128,17 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < -15: global_position = Vector3(0,2,8)
 
 func animate(delta: float, speed: float) -> void:
+	if combat.action!=pose_action:
+		pose_from = rig.weapon.transform
+		pose_action = combat.action
+		pose_blend = 0.0
 	walk_clock += delta*speed*2.6
 	for side in [-1,1]:
 		rig.joints["leg"+str(side)].rotation.x = sin(walk_clock)*side*minf(speed*0.1,0.45)
 		rig.joints["arm"+str(side)].rotation.x = -0.85 if combat.drawn else -sin(walk_clock)*side*minf(speed*0.08,0.3)
 	var w: Node3D = rig.weapon
 	w.visible = not is_instance_valid(projectile)
-	w.position = Vector3(0.24,1.05,-0.45) if combat.drawn else Vector3(0,1.05,0.26)
+	w.position = Vector3(0,1.20,-0.32) if combat.drawn else Vector3(0,1.05,0.26)
 	w.rotation = Vector3(-PI/2,0,-0.15) if combat.drawn else Vector3(0,0,0.35)
 	if combat.action!="idle":
 		var t: float = combat.elapsed
@@ -138,7 +146,7 @@ func animate(delta: float, speed: float) -> void:
 		match combat.action:
 			"light","flash","fourfold":
 				var pulse := sin(p*PI) if combat.action!="fourfold" else sin(p*PI*4)
-				w.position.z -= maxf(0,pulse)*0.8
+				w.position.z -= maxf(0,pulse)*0.15
 				w.rotation.x -= 0.18
 			"heavy","turn","spin","finisher":
 				w.rotation.y = -1.5+p*(TAU if combat.action in ["turn","spin","finisher"] else 3)
@@ -146,12 +154,16 @@ func animate(delta: float, speed: float) -> void:
 			"guard","reply":
 				w.rotation.y = clampf(t/0.18,0,1)*PI
 				w.position.z += 0.55
-				if combat.action=="reply": w.position.z -= sin(p*PI)*0.8
+				if combat.action=="reply": w.position.z -= sin(p*PI)*0.18
 			"plant","wait","counter_window":
-				w.position = Vector3(0,1.0,-0.7)
+				w.position = Vector3(0,1.15,-0.35)
 				w.rotation = Vector3(0,0,PI)
 			"throw": w.visible = t<0.38
+	if delta>0:
+		pose_blend = minf(1,pose_blend+delta/0.10)
+		w.transform = pose_from.interpolate_with(w.transform,smoothstep(0,1,pose_blend))
 	for i in ghosts.size(): ghosts[i].visible = i<combat.shadow_lifetimes.size()
+	HunterModel.pose_arms(rig,combat.drawn and not is_instance_valid(projectile),walk_clock)
 
 func take_damage(amount: float, origin: Vector3, blockable: bool) -> void:
 	var direction := (origin-global_position).normalized()
