@@ -122,6 +122,7 @@ func _physics_process(delta: float) -> void:
 	rear_tell.visible = false
 	lunge_tell.visible = false
 	if health <= 0:
+		CreatureModel.charge_visuals(mesh,data,"idle",0)
 		collision_layer = 0
 		# A defeated airborne body still falls onto world geometry without blocking actors.
 		collision_mask = 2 if not is_on_floor() else 0
@@ -147,6 +148,7 @@ func _physics_process(delta: float) -> void:
 	exposed = maxf(0,exposed-delta)
 	if not is_on_floor(): velocity.y -= (LEAP_GRAVITY if airborne_leap else 25.0)*delta
 	if stagger > 0:
+		CreatureModel.charge_visuals(mesh,data,"recover",0)
 		phase = "recover"
 		clock = 0
 		tell.visible = false
@@ -155,6 +157,7 @@ func _physics_process(delta: float) -> void:
 		move_actor()
 		return
 	if not is_instance_valid(target):
+		CreatureModel.charge_visuals(mesh,data,"idle",0)
 		phase = "idle"
 		tell.visible = false
 		velocity.x = 0
@@ -162,6 +165,7 @@ func _physics_process(delta: float) -> void:
 		move_actor()
 		return
 	if target.combat.health<=0:
+		CreatureModel.charge_visuals(mesh,data,"idle",0)
 		phase = "idle"
 		tell.visible = false
 		velocity.x = 0

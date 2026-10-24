@@ -74,10 +74,7 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 	tail.rotation.y = sin(tail_gait*0.5)*0.12
 	TailSkin.animate(tail,tail_gait,phase,clock)
 	var neck := root.get_node("Neck") as Node3D
-	var frill := neck.get_node_or_null("Frill") as MeshInstance3D
-	if frill:
-		var expansion := 1.0+smoothstep(0,float(data.windup),clock)*0.12 if phase=="windup" else 1.0
-		frill.scale = Vector3(expansion,expansion,1)
+	charge_visuals(root,data,phase,clock)
 	neck.rotation.x = 0
 	neck.rotation.y = 0
 	root.position.y = 0
@@ -123,6 +120,11 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 		elif phase=="recover":
 			root.position.y = -float(data.size)*0.06*sin(clampf(clock/0.30,0,1)*PI)
 			neck.rotation.x = 0.15*(1-smoothstep(0,0.40,clock))
+	if data.pattern=="mist":
+		if phase=="active": neck.rotation.x = -0.20+0.12*sin(clampf(clock/0.65,0,1)*PI)
+		elif phase=="recover": neck.rotation.x = -0.20*(1-smoothstep(0,0.45,clock))
+	elif data.pattern=="pulse" and phase=="active":
+		neck.rotation.x = -0.20*(1-smoothstep(0,0.30,clock))
 	# Bend knees when the torso lowers; solve the planted foot back to actor ground.
 	if phase=="idle": root.position.y -= float(data.size)*0.045*minf(speed/2,1)
 	var limb_speed := speed
@@ -177,3 +179,18 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 		var target: Vector3 = entry.target
 		target.y -= lowest
 		LegSkin.pose(entry.leg,target,entry.foot_basis)
+
+static func charge_visuals(root: Node3D, data: Dictionary, phase: String, clock: float) -> void:
+	var load := smoothstep(0,float(data.windup),clock) if phase=="windup" else 0.0
+	if phase=="active": load = 1-smoothstep(0.08,0.45,clock)
+	var frill := root.get_node("Neck").get_node_or_null("Frill") as MeshInstance3D
+	if frill: frill.scale = Vector3(1+load*0.12,1+load*0.12,1)
+	if data.pattern=="pulse":
+		for index in 5:
+			var crest := root.get_node_or_null("Crest"+str(index)) as MeshInstance3D
+			if crest==null: continue
+			var material := crest.material_override as StandardMaterial3D
+			if material==null: continue
+			material.emission_enabled = true
+			material.emission = Color("78b9b5")
+			material.emission_energy_multiplier = load*0.75
