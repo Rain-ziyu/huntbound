@@ -61,6 +61,52 @@ func run() -> void:
 		var sole := ankle.to_global(Vector3(0,-0.1,0))
 		var expected: float = -0.1+0.1/cos(0.3)+(sole.x-100)*tan(0.3)
 		check(absf(sole.y-expected)<0.003,"runtime animation samples real ramp under each foot")
+	var slope_normal := Vector3(-sin(0.3),cos(0.3),0)
+	for yaw in [0.0,0.9,2.0]:
+		p.rig.root.rotation.y = yaw
+		p.animate(0,0)
+		for side in [-1,1]:
+			var boot: MeshInstance3D = p.rig.legs[side].boot
+			check(boot.global_basis.y.normalized().dot(slope_normal)>0.9999,"sole follows world normal at different actor yaw")
+			var corners_fit := true
+			for x in [-0.5,0.5]:
+				for z in [-0.5,0.5]:
+					var corner := boot.to_global(Vector3(x,-0.5,z))
+					var height: float = -0.1+0.1/cos(0.3)+(corner.x-100)*tan(0.3)
+					corners_fit = corners_fit and absf(corner.y-height)<0.003
+			check(corners_fit,"all four sole corners lie on actual ramp")
+			var skeleton: Skeleton3D = p.rig.skinning.skeleton
+			var bone := skeleton.find_bone("LeftFoot" if side==-1 else "RightFoot")
+			var rendered_up := skeleton.global_basis*skeleton.get_bone_global_pose(bone).basis.y
+			check(rendered_up.dot(slope_normal)>0.9999,"rendered Foot bone follows slope")
+	p.combat.set_action("finisher")
+	p.combat.elapsed = 0.95
+	p.animate(0,0)
+	check(p.rig.legs[1].boot.global_basis.y.normalized().dot(Vector3.UP)>0.9999,"kicking foot releases slope tilt")
+	check(p.rig.legs[-1].boot.global_basis.y.normalized().dot(slope_normal)>0.9999,"kick support foot stays aligned")
+	if "--capture" in OS.get_cmdline_user_args():
+		world.hud.get_parent().hide()
+		p.rig.root.rotation.y = 0.0
+		p.combat.set_action("guard")
+		p.combat.elapsed = 0.3
+		p.animate(0,0)
+		var surface := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = box.size
+		surface.mesh = mesh
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color("627068")
+		surface.material_override = material
+		ramp.add_child(surface)
+		var camera := Camera3D.new()
+		world.add_child(camera)
+		camera.position = Vector3(101.4,0.70,-2.6)
+		camera.look_at(Vector3(100,0.38,0))
+		camera.fov = 30
+		camera.current = true
+		for frame in 30: await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../Shubian-slope-feet.png"))
 	p.global_position.y = 3
 	check(is_zero_approx(p.foot_ground_height(Vector3.ZERO)),"missing nearby ground returns no offset")
 	print("FOOT_GROUND_CHECKS: ",checks," FAILURES: ",failures)

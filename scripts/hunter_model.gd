@@ -102,7 +102,7 @@ static func pose_torso(rig: Dictionary, action: String, elapsed: float, gait: fl
 		var arm: Dictionary = rig.arms[side]
 		arm.shoulder.position = rig.torso.transform*(arm.rest_shoulder-Vector3(0,1.08,0))
 
-static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bool, gait: float, speed: float, delta: float, ground: Callable = Callable()) -> void:
+static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bool, gait: float, speed: float, delta: float, ground: Callable = Callable(), ground_normal: Callable = Callable()) -> void:
 	var drop := 0.09 if armed else 0.015
 	if action in ["guard","reply"]: drop = 0.13
 	if action in ["plant","wait","counter_window"]: drop = 0.18
@@ -112,6 +112,7 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 	var previous_height := body.position.y
 	body.position.y = -drop
 	var targets := {}
+	var normals := {}
 	var lowest := 0.0
 	for side in [-1,1]:
 		var leg: Dictionary = rig.legs[side]
@@ -127,6 +128,7 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 			stance = lerpf(stance,0.08,support)
 			lift = sin(support*PI)*0.035
 		var target := Vector3(leg.hip.position.x,0.10-body.position.y+lift,stance)
+		normals[side] = Vector3.UP
 		if action=="finisher" and side==1:
 			var chamber := smoothstep(0.60,0.80,elapsed)
 			var extension := smoothstep(0.80,0.95,elapsed)
@@ -138,6 +140,9 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 			var height: float = clampf(ground.call(Vector3(target.x,0,target.z)),-0.22,0.22)
 			target.y += height
 			lowest = minf(lowest,height)
+			if ground_normal.is_valid():
+				var normal: Vector3 = ground_normal.call(Vector3(target.x,0,target.z))
+				normals[side] = Vector3.UP.lerp(normal,1-smoothstep(0.01,0.10,lift)).normalized()
 		targets[side] = target
 	# Lower the visual body for the downhill foot without moving the gameplay capsule.
 	body.position.y = lerpf(previous_height,-drop+lowest,minf(1,delta*14)) if delta>0 else -drop+lowest
@@ -146,8 +151,16 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 		var target: Vector3 = targets[side]
 		target.y += -drop-body.position.y
 		pose_leg(leg,target)
+		pose_sole(leg,normals[side])
 		if rig.has("skirts"):
 			rig.skirts[side].rotation.x = clampf(leg.hip.rotation.x,0,1.3)*0.7
+
+static func pose_sole(leg: Dictionary, normal: Vector3) -> void:
+	# Tilt the Foot bone around the sole anchor, preserving the solved leg lengths.
+	# The ankle controller is level in rig space after pose_leg.
+	var tilt := Basis(Quaternion(Vector3.UP,normal.normalized()))
+	leg.boot.basis = tilt.scaled_local(Vector3(0.18,0.15,0.30))
+	leg.boot.position = Vector3(0,-0.10,0)+tilt*Vector3(0,0.075,-0.06)
 
 static func pose_leg(leg: Dictionary, target: Vector3) -> void:
 	var offset: Vector3 = target-leg.hip.position

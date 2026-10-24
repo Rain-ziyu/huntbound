@@ -191,17 +191,25 @@ func animate(delta: float, speed: float) -> void:
 		pose_blend = minf(1,pose_blend+delta/0.10)
 		w.transform = pose_from.interpolate_with(w.transform,smoothstep(0,1,pose_blend))
 	for i in ghosts.size(): ghosts[i].visible = i<combat.shadow_lifetimes.size()
-	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta,foot_ground_height if is_on_floor() else Callable())
+	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
 	HunterModel.pose_torso(rig,combat.action,combat.elapsed,walk_clock,speed,delta)
 	HunterModel.pose_arms(rig,combat.drawn and not is_instance_valid(projectile),walk_clock)
 
 func foot_ground_height(local_point: Vector3) -> float:
+	var hit := foot_ground_sample(local_point)
+	return 0.0 if hit.is_empty() else hit.position.y-global_position.y
+
+func foot_ground_normal(local_point: Vector3) -> Vector3:
+	var hit := foot_ground_sample(local_point)
+	return Vector3.UP if hit.is_empty() else rig.root.global_basis.inverse()*hit.normal
+
+func foot_ground_sample(local_point: Vector3) -> Dictionary:
 	var point: Vector3 = rig.root.to_global(local_point)
 	point.y = global_position.y
 	var probe := PhysicsRayQueryParameters3D.create(point+Vector3.UP*0.5,point-Vector3.UP*0.5,2)
 	var hit := get_world_3d().direct_space_state.intersect_ray(probe)
-	if hit.is_empty() or hit.normal.y<0.72: return 0.0
-	return hit.position.y-global_position.y
+	if hit.is_empty() or hit.normal.y<0.72: return {}
+	return hit
 
 func take_damage(amount: float, origin: Vector3, blockable: bool, interrupt := true) -> void:
 	var direction := (origin-global_position).normalized()
