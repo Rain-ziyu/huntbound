@@ -36,6 +36,18 @@ func run() -> void:
 	fighter.combat.request("light")
 	for frame in 40: await physics_frame
 	check(fighter.combat.drawn and monster.health<health,"packed weapon action causes actual contact damage")
+	var cue = fighter.get_node("OcclusionVisibility")
+	check(cue.parts.size()>0 and cue.material.shader!=null,"packed hunter occlusion shader and skin overlay load")
+	fighter.set_physics_process(false)
+	for creature in monsters: creature.set_physics_process(false)
+	fighter.global_position = Vector3(0,0.05,-10)
+	await physics_frame
+	await physics_frame
+	fighter.finish_throw(Vector3(0,0,-13))
+	var effects := get_nodes_in_group("teleport_feedback")
+	check(effects.size()==1 and fighter.global_position.z< -10,"packed safe arrival creates endpoint feedback")
+	for frame in 30: await physics_frame
+	check(get_nodes_in_group("teleport_feedback").is_empty(),"packed teleport feedback cleans up")
 	print("PACKED_PREVIEW_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame

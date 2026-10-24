@@ -36,7 +36,7 @@ try {
     $checkCode = $LASTEXITCODE
 } finally { Pop-Location }
 $checkLines | Set-Content -LiteralPath $checkLog -Encoding utf8
-if ($checkCode -ne 0 -or -not ($checkLines -match '^PACKED_PREVIEW_CHECKS: 9 FAILURES: 0$') -or ($checkLines -match 'SCRIPT ERROR:|^ERROR:')) { throw "Pack verification failed; see $checkLog" }
+if ($checkCode -ne 0 -or -not ($checkLines -match '^PACKED_PREVIEW_CHECKS: 12 FAILURES: 0$') -or ($checkLines -match 'SCRIPT ERROR:|^ERROR:')) { throw "Pack verification failed; see $checkLog" }
 $revision = (git -C $projectPath rev-parse HEAD).Trim()
 $manifest = [pscustomobject]@{
     name = 'Shubian Windows single-player prototype preview'
@@ -45,7 +45,7 @@ $manifest = [pscustomobject]@{
     created_utc = [DateTime]::UtcNow.ToString('o')
     pack_sha256 = (Get-FileHash -LiteralPath $pack -Algorithm SHA256).Hash
     runtime_sha256 = (Get-FileHash -LiteralPath $runtime -Algorithm SHA256).Hash
-    checks = '9 isolated packed-resource, exclusion, movement, skin and contact checks passed'
+    checks = '12 isolated packed-resource, exclusion, movement, skin, contact, occlusion shader and teleport feedback checks passed'
     scope = 'Pack smoke verification only; no human difficulty or final animation acceptance'
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packagePath 'build-manifest.json') -Encoding utf8
