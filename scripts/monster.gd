@@ -1,4 +1,5 @@
 extends CharacterBody3D
+const CombatAudio = preload("res://scripts/combat_audio.gd")
 const Visuals = preload("res://scripts/visuals.gd")
 const Hazard = preload("res://scripts/hazard.gd")
 const CreatureModel = preload("res://scripts/creature_model.gd")
@@ -234,6 +235,7 @@ func _physics_process(delta: float) -> void:
 			else:
 				rear_attack = data.has("rear_attack") and rear_cooldown<=0 and offset.normalized().dot(-global_basis.z)< -0.35
 				if rear_attack: rear_cooldown = 5.0
+				CombatAudio.emit_at(get_parent(),"warning",global_position+Vector3.UP*float(data.size)*0.7)
 				phase = "windup"
 				clock = 0
 				target_point = target.global_position

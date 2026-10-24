@@ -1,5 +1,6 @@
 extends CharacterBody3D
 signal hit_confirmed(action: String, beat: int, target: Node3D, result: Dictionary)
+const CombatAudio = preload("res://scripts/combat_audio.gd")
 const Combat = preload("res://scripts/combat/trident_combat.gd")
 const Visuals = preload("res://scripts/visuals.gd")
 const Projectile = preload("res://scripts/trident_projectile.gd")
@@ -301,7 +302,10 @@ func take_damage(amount: float, origin: Vector3, blockable: bool, interrupt := t
 	var direction := (origin-global_position).normalized()
 	var front := direction.dot(-rig.root.global_basis.z)>0.15
 	var exhausted_guard: bool = combat.action=="guard" and combat.elapsed>=0.12 and blockable and front and combat.stamina<15
+	var previous_health: float = combat.health
 	var result: String = combat.receive_damage(amount,blockable,front,interrupt)
+	if result=="guarded": CombatAudio.emit_at(get_parent(),"guard",global_position+Vector3.UP)
+	elif combat.health<previous_health: CombatAudio.emit_at(get_parent(),"hurt",global_position+Vector3.UP)
 	message = {"counter":"反击成功！旋转踢击，不消耗枪影。","guarded":"格挡成功：左键反击，再 Ctrl+左键闪刺。","immune":"免伤","armored":"霸体承伤：动作继续","hurt":"受击！注意预警与站位。"}.get(result,result)
 	if result=="ongoing": message = "毒雾持续伤害：离开绿色区域！"
 	if result=="hurt" and exhausted_guard: message = "耐力不足，架势被击破！先走位恢复。"
