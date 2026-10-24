@@ -3,6 +3,7 @@ const V = preload("res://scripts/visuals.gd")
 const H = preload("res://scripts/hunter_model.gd")
 const Surface = preload("res://scripts/creature_surface.gd")
 const TailSkin = preload("res://scripts/creature_tail_skin.gd")
+const LegSkin = preload("res://scripts/creature_leg_skin.gd")
 
 static func create(parent: Node3D, data: Dictionary) -> Node3D:
 	var root := V.pivot(parent,"CreatureMesh",Vector3.ZERO)
@@ -60,15 +61,13 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 			var crest := Surface.profile(root,"Crest"+str(i),[Vector4(-0.12,0.008,0.01,0),Vector4(-0.05,0.035,0.24,0.22),Vector4(0.025,0.03,0.27,0.24),Vector4(0.13,0.008,0.01,0)],s,Color("78b9b5"))
 			crest.position = Vector3(0,y+s*0.22,(i-2)*s*0.19)
 	TailSkin.bind(tail)
-	return root
-
-static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float) -> void:
 	for side in [-1,1]:
 		for label in ["Front","Hind"]:
 			var leg := root.get_node_or_null(label+str(side)) as Node3D
-			if leg:
-				var offset := PI if label=="Front" else 0.0
-				leg.rotation.x = sin(gait+offset)*side*minf(0.45,speed*0.08)
+			if leg: LegSkin.bind(leg,s)
+	return root
+
+static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float) -> void:
 	var tail := root.get_node("Tail") as Node3D
 	tail.rotation.y = sin(gait*0.5)*0.12
 	TailSkin.animate(tail,gait,phase,clock)
@@ -79,6 +78,7 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 		frill.scale = Vector3(expansion,expansion,1)
 	neck.rotation.x = 0
 	neck.rotation.y = 0
+	root.position.y = 0
 	if phase=="windup":
 		var fraction := clampf(clock/float(data.windup),0,1)
 		neck.rotation.x = (0.35 if data.pattern=="charge" else -0.20)*fraction
@@ -88,9 +88,20 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 		if data.pattern=="sweep": neck.rotation.y = sin(clock/0.65*PI)*0.8
 		if data.pattern=="leap": root.position.y = sin(clampf(clock/0.65,0,1)*PI)*1.0
 	else: root.position.y = 0
-	# Keep planted limb roots at their standing height while the charging torso lowers.
+	# Bend knees when the torso lowers; solve the planted foot back to actor ground.
+	root.position.y -= float(data.size)*0.045*minf(speed/2,1)
 	var hip_height := float(data.size)*(0.50 if "quadruped" in data.body else 0.64)*0.9
 	for side in [-1,1]:
 		for label in ["Front","Hind"]:
 			var leg := root.get_node_or_null(label+str(side)) as Node3D
-			if leg: leg.position.y = hip_height-minf(root.position.y,0)
+			if leg:
+				leg.position.y = hip_height
+				leg.rotation.x = 0
+				var offset := PI if label=="Front" else 0.0
+				var step := gait+offset
+				var foot: MeshInstance3D = leg.get_node("Foot")
+				var target := Vector3(0,foot.position.y-minf(root.position.y,0),0)
+				if speed>0.1:
+					target.z = sin(step)*side*minf(float(data.size)*0.16,speed*0.06)
+					target.y += maxf(0,cos(step)*side)*minf(float(data.size)*0.10,speed*0.035)
+				LegSkin.pose(leg,target)
