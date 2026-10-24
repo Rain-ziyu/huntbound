@@ -67,6 +67,32 @@ static func blob(parent: Node3D, label: String, center: Vector3, size: Vector3, 
 	result.mesh.rings = 12
 	return result
 
+static func boot(parent: Node3D) -> MeshInstance3D:
+	# Normalized shoe coordinates retain the existing ankle/sole anchor and dimensions.
+	# Closed bottom cap is a real planar sole, not the tangent point of an ellipsoid.
+	var result := loft(parent,"ForestBoot",[
+		Vector4(-0.50,0.48,0.49,0),Vector4(-0.34,0.50,0.50,0),
+		Vector4(0.10,0.46,0.46,0.015),Vector4(0.40,0.37,0.35,0.10),
+		Vector4(0.95,0.33,0.25,0.17),Vector4(1.35,0.34,0.25,0.17)
+	],Color.WHITE,0,TAU,20)
+	var arrays := result.mesh.surface_get_arrays(0)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var colors := PackedColorArray()
+	for point in vertices:
+		var color := Color("303834")
+		if point.y< -0.30: color = Color("171e1b")
+		elif point.z< -0.20 and point.y<0.41: color = Color("626d63")
+		elif point.y>0.94: color = Color("576356")
+		colors.append(color)
+	arrays[Mesh.ARRAY_COLOR] = colors
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+	result.mesh = mesh
+	result.material_override.vertex_color_use_as_albedo = true
+	result.position = Vector3(0,-0.025,-0.06)
+	result.scale = Vector3(0.18,0.15,0.30)
+	return result
+
 static func create(root: Node3D) -> Dictionary:
 	var dark := Color("303735")
 	var green := Color("4c5e45")

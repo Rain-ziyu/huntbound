@@ -49,7 +49,7 @@ static func create(parent: Node3D) -> Dictionary:
 		var shin := Outfit.loft(knee,"TrouserShin",[Vector4(-0.36,0.061,0.058,0),Vector4(-0.23,0.077,0.071,0),Vector4(-0.10,0.087,0.078,0),Vector4(0,0.078,0.072,0)],dark)
 		Outfit.patch(knee,"ShinPlate",[Vector3(-0.065,-0.10,-0.09),Vector3(0.065,-0.10,-0.09),Vector3(0.055,-0.27,-0.085),Vector3(0,-0.33,-0.10),Vector3(-0.055,-0.27,-0.085)],armor)
 		var ankle := V.pivot(knee,"Ankle",Vector3(0,-0.36,0))
-		var boot := V.piece(ankle,Vector3(0,-0.025,-0.06),Vector3(0.18,0.15,0.30),dark,true)
+		var boot := Outfit.boot(ankle)
 		legs[side] = {"hip":leg,"knee":knee,"ankle":ankle,"thigh":thigh,"shin":shin,"boot":boot}
 		joints["leg"+str(side)] = leg
 	var rig := {"root":root,"torso":torso,"joints":joints,"arms":arms,"legs":legs,"skirts":costume.skirts,"weapon":V.trident(root)}
