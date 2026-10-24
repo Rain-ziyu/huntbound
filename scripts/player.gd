@@ -6,6 +6,7 @@ const Projectile = preload("res://scripts/trident_projectile.gd")
 const HunterModel = preload("res://scripts/hunter_model.gd")
 const Parts = preload("res://scripts/monster_parts.gd")
 const HitFeedback = preload("res://scripts/hit_feedback.gd")
+const TeleportFeedback = preload("res://scripts/teleport_feedback.gd")
 var combat = Combat.new()
 var rig: Dictionary
 var mount: Node3D
@@ -348,6 +349,14 @@ func finish_throw(point: Vector3, allow_arrival := true) -> void:
 	if not get_world_3d().direct_space_state.intersect_shape(body_probe,1).is_empty():
 		message = "落点空间不足，取消瞬移"
 		return
+	var departure: Transform3D = rig.root.global_transform
+	var travel := global_position.distance_to(candidate)
 	global_position = candidate
 	motion_epoch += 1
+	if travel>0.5:
+		var effect := TeleportFeedback.new()
+		effect.source = rig.root
+		effect.departure = departure
+		effect.arrival = rig.root.global_transform
+		get_parent().add_child(effect)
 	message = "投掷命中落点，已移至安全位置" if motion.length()>0.5 else "落点受阻，武器收回"
