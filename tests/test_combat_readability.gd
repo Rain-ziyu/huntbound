@@ -1,0 +1,85 @@
+extends SceneTree
+var checks := 0
+var failures := 0
+func check(value: bool, label: String) -> void:
+	checks += 1
+	if not value:
+		failures += 1
+		printerr("FAIL: ",label)
+func _initialize() -> void: call_deferred("run")
+func run() -> void:
+	var world = load("res://scenes/main/main.tscn").instantiate()
+	root.add_child(world)
+	await physics_frame
+	await physics_frame
+	var p = world.hunter
+	p.set_physics_process(false)
+	var monsters := get_nodes_in_group("monsters")
+	for m in monsters: m.set_physics_process(false)
+	var m = monsters[0]
+	var ui = world.combat_hud
+	m.global_position = p.global_position+Vector3(0,0,-6)
+	p.lock_target = null
+	m.update_nameplate()
+	check(m.label.visible and not str(m.data.weakness) in m.label.text,"nearby unselected creature has a short nameplate")
+	m.phase = "windup"
+	m.rear_attack = true
+	m.update_nameplate()
+	check("摆尾蓄势" in m.label.text,"unselected attacker still warns about rear attack")
+	p.lock_target = m
+	m.update_nameplate()
+	ui.update_state(p,0)
+	check(not m.label.visible,"locked creature has no duplicate world label")
+	check(m.data.weakness in ui.target_text.text and "摆尾蓄势" in ui.target_hint.text,"locked target retains weakness and active warning")
+	m.wall_stun = 0.3
+	ui.update_state(p,0)
+	check("撞击失衡" in ui.target_hint.text,"wall stun overrides ordinary attack hint")
+	m.wall_stun = 0
+	m.stagger = 0.3
+	ui.update_state(p,0)
+	check("失衡" in ui.target_hint.text,"stagger has a clear pursuit cue")
+	m.stagger = 0
+	m.rear_attack = false
+	m.global_position = p.global_position+Vector3(0,0,-30)
+	p.lock_target = null
+	m.update_nameplate()
+	check(not m.label.visible,"distant nameplate stays hidden")
+	m.global_position = p.global_position+Vector3(0,0,-6)
+	var hp: float = m.health
+	m.health = 0
+	m.update_nameplate()
+	check(not m.label.visible,"corpse does not add combat label clutter")
+	m.health = hp
+	m.target = null
+	m.update_nameplate()
+	check(not m.label.visible,"missing hunter safely hides nameplate")
+	m.target = p
+	for target in monsters:
+		p.lock_target = target
+		target.phase = "windup"
+		target.clock = target.data.windup*0.8
+		target.rear_attack = false
+		ui.update_state(p,0)
+		await process_frame
+		await process_frame
+		check(target.combat_hint()==ui.target_hint.text,"panel warning matches actual selected species: "+str(target.data.id))
+		check(ui.target_text.position.y+ui.target_text.get_minimum_size().y<ui.target_hint.position.y,"species text ends above warning row")
+		check(not target.label.visible,"selection changes keep only one information panel")
+	var charge = monsters[1]
+	charge.clock = charge.data.windup*0.5
+	check("蓄势跟踪" in charge.combat_hint(),"early charge tracks target")
+	charge.clock = charge.data.windup*0.8
+	check("方向已锁定" in charge.combat_hint(),"late charge advertises committed direction")
+	p.combat.health = 0
+	ui.update_state(p,0)
+	m.update_nameplate()
+	check(not ui.target_hint.visible and not ui.target_text.visible and not m.label.visible,"hunter defeat clears target information")
+	p.combat.health = 240
+	p.lock_target = null
+	ui.update_state(p,0)
+	check(not ui.target_hint.visible and not ui.target_health.visible,"unlock clears warning and health together")
+	check(ui.target_hint.mouse_filter==Control.MOUSE_FILTER_IGNORE,"warning row leaves combat mouse input available")
+	print("COMBAT_READABILITY_CHECKS: ",checks," FAILURES: ",failures)
+	world.queue_free()
+	await process_frame
+	quit(1 if failures else 0)

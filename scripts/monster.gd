@@ -101,11 +101,39 @@ func _ready() -> void:
 	add_child(lunge_tell)
 	label = Label3D.new()
 	label.position.y = float(data.size)*1.5
-	label.font_size = 42
-	label.pixel_size = 0.008
+	label.font_size = 32
+	label.pixel_size = 0.005
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(label)
 	add_to_group("monsters")
+
+func combat_hint() -> String:
+	if health<=0: return "已击退"
+	if wall_stun>0: return "撞击失衡 · 侧腹暴露"
+	if stagger>0: return "失衡 · 可追击"
+	if rear_attack and phase=="windup": return "摆尾蓄势 · 离开后方扇区"
+	if rear_attack and phase=="active": return "摆尾中 · 避开尾部"
+	if phase=="windup":
+		if data.pattern in ["charge","leap"]:
+			return "方向已锁定 · 横向避开" if clock>=float(data.windup)*0.7 else "蓄势跟踪 · 留意直线通道"
+		if data.pattern=="mist": return "喷雾蓄势 · 头颈雾囊暴露"
+		if data.pattern=="pulse": return "蓄能中 · 攻击背棘可打断"
+		return "横扫蓄势 · 留意头部运动"
+	if phase=="active":
+		if data.pattern=="mist": return "毒雾生效 · 离开毒雾范围"
+		if data.pattern=="pulse": return "放电中 · 离开近身范围"
+		if data.pattern=="charge": return "冲锋中 · 横向避开"
+		if data.pattern=="leap": return "扑跃中 · 横向避开"
+		return "横扫中 · 躲避或正面格挡"
+	if phase=="recover": return "收势 · 寻找弱点追击"
+	return ""
+
+func update_nameplate() -> void:
+	label.visible = health>0 and is_instance_valid(target) and target.combat.health>0 and target.lock_target!=self and global_position.distance_to(target.global_position)<=18
+	if not label.visible: return
+	label.text = "%s  %d/%d" % [data.name,ceili(health),int(data.health)]
+	var hint := combat_hint()
+	if hint!="": label.text += "\n"+hint
 
 func show_impact(weak: bool) -> void:
 	impact_time = 0.12
@@ -114,6 +142,7 @@ func show_impact(weak: bool) -> void:
 	for part in impact_meshes: part.material_overlay = impact_material
 
 func _process(delta: float) -> void:
+	update_nameplate()
 	if impact_time<=0: return
 	impact_time = maxf(0,impact_time-delta)
 	impact_material.albedo_color.a = minf(impact_material.albedo_color.a,impact_time*2.7)
@@ -141,11 +170,7 @@ func _physics_process(delta: float) -> void:
 		tell.visible = false
 		label.text = str(data.name)+" 已击退"
 		return
-	label.text = "%s  %d/%d\n%s" % [data.name,ceili(health),int(data.health),data.weakness]
-	if wall_stun>0: label.text += "\n撞击失衡 · 侧腹暴露"
-	if rear_attack and phase=="windup": label.text += "\n摆尾蓄势 · 离开后方扇区"
-	if not rear_attack and phase=="windup" and data.pattern in ["charge","leap"]:
-		label.text += "\n方向已锁定 · 横向避开" if clock>=float(data.windup)*0.7 else "\n蓄势跟踪 · 留意直线通道"
+	update_nameplate()
 	weak_marker.visible = data.weak_side=="rear" or (data.weak_side=="front" and phase=="windup") or (data.weak_side=="flank" and exposed>0)
 	if data.id=="stormcrest": weak_marker.visible = phase=="windup" or stagger>0
 	stagger = maxf(0,stagger-delta)

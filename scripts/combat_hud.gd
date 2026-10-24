@@ -14,6 +14,7 @@ var context: Label
 var help: Label
 var target_text: Label
 var target_health: ProgressBar
+var target_hint: Label
 var notice: Label
 func text_at(position: Vector2, size: int) -> Label:
 	var label := Label.new()
@@ -84,6 +85,14 @@ func _ready() -> void:
 	target_health.offset_left = -220
 	target_health.offset_right = 220
 	target_health.offset_top = 46
+	target_hint = text_at(Vector2.ZERO,16)
+	target_hint.anchor_left = 0.5
+	target_hint.anchor_right = 0.5
+	target_hint.offset_left = -280
+	target_hint.offset_right = 280
+	target_hint.offset_top = 145
+	target_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	target_hint.add_theme_color_override("font_color",Color("e6c57c"))
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_F1:
 		help.visible = not help.visible
@@ -117,11 +126,13 @@ func update_state(fighter, defeated: int) -> void:
 	context.text = "林地已清理 · F5 重新挑战" if c.health>0 and defeated==5 else followup(c,fighter.heavy_held)
 	notice.text = fighter.message if fighter.message!="观察金色预警后躲避或格挡。" and c.health>0 else ""
 	for part in PART_NAMES: notice.text = notice.text.replace(part,PART_NAMES[part])
-	var locked: bool = is_instance_valid(fighter.lock_target) and fighter.lock_target.health>0
+	var locked: bool = c.health>0 and is_instance_valid(fighter.lock_target) and fighter.lock_target.health>0
 	target_text.visible = locked
 	target_health.visible = locked
+	target_hint.visible = locked
 	if locked:
 		var target = fighter.lock_target
 		target_text.text = "%s  %d / %d\n\n%s\n对策：%s" % [target.data.name,ceili(target.health),int(target.data.health),target.data.trait,target.data.weakness]
 		target_health.max_value = target.data.health
 		target_health.value = target.health
+		target_hint.text = target.combat_hint()
