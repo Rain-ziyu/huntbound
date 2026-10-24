@@ -2,6 +2,7 @@ extends RefCounted
 const V = preload("res://scripts/visuals.gd")
 const Skinning = preload("res://scripts/hunter_skin.gd")
 const Outfit = preload("res://scripts/hunter_outfit.gd")
+const Motion = preload("res://scripts/hunter_motion.gd")
 
 static func tapered(parent: Node3D, pos: Vector3, top: float, bottom: float, height: float, color: Color) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
@@ -22,6 +23,10 @@ static func create(parent: Node3D) -> Dictionary:
 	var armor := Color("6a756b")
 	var skin := Color("b99a7c")
 	var costume := Outfit.create(root)
+	var torso := V.pivot(root,"Torso",Vector3(0,1.08,0))
+	for part in costume.upper_parts:
+		part.reparent(torso,false)
+		part.position -= torso.position
 	var joints := {}
 	var arms := {}
 	var legs := {}
@@ -35,7 +40,7 @@ static func create(parent: Node3D) -> Dictionary:
 			display.material_override = V.mat(Color("8fb8a0"),true)
 		var hand := V.piece(root,Vector3.ZERO,Vector3(0.095,0.12,0.09),skin,true)
 		var elbow_pad := Outfit.blob(root,"Elbow"+str(side),Vector3.ZERO,Vector3.ONE*0.12,dark)
-		arms[side] = {"shoulder":shoulder,"upper":upper,"lower":lower,"hand":hand,"elbow":elbow_pad}
+		arms[side] = {"shoulder":shoulder,"rest_shoulder":shoulder.position,"upper":upper,"lower":lower,"hand":hand,"elbow":elbow_pad}
 		joints["arm"+str(side)] = shoulder
 		var leg := V.pivot(root,"Leg"+str(side),Vector3(side*0.14,0.89,0))
 		var thigh := Outfit.loft(leg,"TrouserThigh",[Vector4(-0.43,0.08,0.072,0),Vector4(-0.34,0.10,0.09,0),Vector4(-0.16,0.112,0.10,0),Vector4(0,0.10,0.095,0)],dark)
@@ -47,7 +52,7 @@ static func create(parent: Node3D) -> Dictionary:
 		var boot := V.piece(ankle,Vector3(0,-0.025,-0.06),Vector3(0.18,0.15,0.30),dark,true)
 		legs[side] = {"hip":leg,"knee":knee,"ankle":ankle,"thigh":thigh,"shin":shin,"boot":boot}
 		joints["leg"+str(side)] = leg
-	var rig := {"root":root,"joints":joints,"arms":arms,"legs":legs,"skirts":costume.skirts,"weapon":V.trident(root)}
+	var rig := {"root":root,"torso":torso,"joints":joints,"arms":arms,"legs":legs,"skirts":costume.skirts,"weapon":V.trident(root)}
 	rig.weapon.name = "Trident"
 	pose_arms(rig,false,0)
 	rig.skinning = Skinning.bind(rig)
@@ -86,6 +91,17 @@ static func pose_arms(rig: Dictionary, armed: bool, gait: float) -> void:
 		arm.elbow.position = elbow
 	Skinning.update(rig)
 
+static func pose_torso(rig: Dictionary, action: String, elapsed: float, gait: float, speed: float, delta: float) -> void:
+	var value := Motion.sample(action,elapsed,gait,speed)
+	var rotation := Vector3(value.y,value.z,-value.z*0.08)
+	var position := Vector3(value.z*0.018,1.08,value.w)
+	var weight := minf(1,delta*16) if delta>0 else 1.0
+	rig.torso.rotation = rig.torso.rotation.lerp(rotation,weight)
+	rig.torso.position = rig.torso.position.lerp(position,weight)
+	for side in [-1,1]:
+		var arm: Dictionary = rig.arms[side]
+		arm.shoulder.position = rig.torso.transform*(arm.rest_shoulder-Vector3(0,1.08,0))
+
 static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bool, gait: float, speed: float, delta: float) -> void:
 	var drop := 0.09 if armed else 0.015
 	if action in ["guard","reply"]: drop = 0.13
@@ -103,6 +119,10 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 		if speed>0.1 and action!="dodge":
 			stance = sin(gait)*side*minf(0.28,speed*0.055)
 			lift = maxf(0,cos(gait)*side)*minf(0.14,speed*0.025)
+		if action=="finisher" and side==-1:
+			var support := smoothstep(0.55,0.82,elapsed)*(1-smoothstep(1.16,1.40,elapsed))
+			stance = lerpf(stance,0.08,support)
+			lift = sin(support*PI)*0.035
 		var target := Vector3(leg.hip.position.x,0.10-body.position.y+lift,stance)
 		if action=="finisher" and side==1:
 			var chamber := smoothstep(0.60,0.80,elapsed)

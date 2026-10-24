@@ -15,6 +15,7 @@ func run() -> void:
 	check(skeleton.get_bone_count()>20,"model has saved skeletal structure")
 	var bound := 0
 	var descendants := 0
+	var blended_waist := false
 	for bone in skeleton.get_bone_count():
 		if skeleton.get_bone_parent(bone)>0: descendants += 1
 	for child in skeleton.get_children():
@@ -24,9 +25,14 @@ func run() -> void:
 			check(arrays[Mesh.ARRAY_BONES].size()==arrays[Mesh.ARRAY_VERTEX].size()*4,"vertex bone indices stored")
 			var sum := 0.0
 			for weight in arrays[Mesh.ARRAY_WEIGHTS]: sum += weight
+			if child.get_meta("source_part","")=="Undercoat":
+				for weight in arrays[Mesh.ARRAY_WEIGHTS]:
+					if weight>0.01 and weight<0.99: blended_waist = true
 			check(is_equal_approx(sum,float(arrays[Mesh.ARRAY_VERTEX].size())),"weights normalized")
 			bound += 1
 	check(bound>20 and descendants>=8,"arm hand and leg foot hierarchy with bound meshes")
+	check(skeleton.find_bone("Spine")>=0,"saved spine bone exists")
+	check(blended_waist,"saved waist contains blended rather than rigid-only weights")
 	for side in ["Left","Right"]:
 		var thigh := skeleton.find_bone(side+"Thigh")
 		var shin := skeleton.find_bone(side+"Shin")
@@ -39,9 +45,11 @@ func run() -> void:
 	player.play("heavy")
 	player.advance(0)
 	var before: Quaternion = model.get_node("Trident").quaternion
+	var spine_before := skeleton.get_bone_global_pose(skeleton.find_bone("Spine")).basis.get_rotation_quaternion()
 	player.advance(0.45)
 	var after: Quaternion = model.get_node("Trident").quaternion
 	check(before.angle_to(after)>0.1,"saved clip actually animates the weapon")
+	check(spine_before.angle_to(skeleton.get_bone_global_pose(skeleton.find_bone("Spine")).basis.get_rotation_quaternion())>0.05,"saved clip actually animates spine")
 	player.play("finisher")
 	player.advance(0.95)
 	var foot_bone := skeleton.find_bone("RightFoot")

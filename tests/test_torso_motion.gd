@@ -1,0 +1,83 @@
+extends SceneTree
+var checks := 0
+var failures := 0
+func check(ok: bool, label: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		printerr("FAIL: ",label)
+func _initialize() -> void: call_deferred("run")
+func run() -> void:
+	var world = load("res://scenes/main/main.tscn").instantiate()
+	root.add_child(world)
+	await physics_frame
+	await physics_frame
+	var p = world.hunter
+	p.set_physics_process(false)
+	for m in get_nodes_in_group("monsters"): m.set_physics_process(false)
+	p.combat.set_action("heavy")
+	p.combat.elapsed = 0.18
+	p.animate(0,0)
+	check(p.rig.torso.rotation.y< -0.20,"heavy anticipates with torso windup")
+	p.combat.elapsed = 0.61
+	p.animate(0,0)
+	check(p.rig.torso.rotation.y>0.20,"heavy follows through across the body")
+	p.combat.elapsed = 0.92
+	p.animate(0,0)
+	check(p.rig.torso.rotation.length()<0.001,"heavy recovers to neutral torso")
+	p.combat.set_action("pull")
+	p.combat.elapsed = 0.56
+	p.animate(0,0)
+	check(p.rig.torso.rotation.x>0.10 and p.rig.torso.position.z>0.03,"pull braces upper body backward")
+	p.combat.set_action("light")
+	p.combat.elapsed = 0.25
+	p.animate(0,0)
+	check(p.rig.torso.rotation.x< -0.08 and p.rig.torso.position.z<0,"thrust sends upper body forward")
+	var head_follows := false
+	for binding in p.rig.skinning.bindings:
+		if binding.source.name=="Head":
+			var pose: Transform3D = p.rig.skinning.skeleton.get_bone_global_pose(binding.bone)
+			head_follows = pose.basis.get_rotation_quaternion().angle_to(Quaternion.IDENTITY)>0.05
+	check(head_follows,"rendered head bone follows torso movement")
+	p.combat.set_action("finisher")
+	p.combat.elapsed = 0.95
+	p.animate(0,0)
+	var support: Vector3 = p.to_local(p.rig.legs[-1].ankle.global_position)
+	var body_center: Vector3 = p.rig.torso.transform*Vector3(0,0.25,0)
+	check(body_center.z>=support.z-0.21 and body_center.z<=support.z+0.09,"kick moves support foot beneath upper body in fore-aft direction")
+	check(absf(p.to_local(p.rig.legs[-1].ankle.to_global(Vector3(0,-0.1,0))).y)<0.002,"support foot is grounded at kick contact")
+	var worst_grip := 0.0
+	var worst_segment := 0.0
+	var worst_case := ""
+	for action in p.Combat.MOVES:
+		if p.Combat.MOVES[action].hits.is_empty() and action not in ["guard","dodge","plant"]: continue
+		for aim in [-0.9,-0.25,0.65]:
+			p.pitch = aim
+			p.combat.set_action(action)
+			p.combat.drawn = true
+			var duration: float = p.Combat.MOVES[action].duration
+			for frame in range(ceili(duration*60)+1):
+				p.combat.elapsed = minf(duration,frame/60.0)
+				p.animate(0,0)
+				for side in [-1,1]:
+					var arm: Dictionary = p.rig.arms[side]
+					var grip: Vector3 = p.rig.weapon.transform*Vector3(0,0.18 if side==-1 else -0.28,0)
+					worst_grip = maxf(worst_grip,arm.hand.position.distance_to(grip))
+					var error := maxf(absf(arm.shoulder.position.distance_to(arm.elbow.position)-0.39),absf(arm.elbow.position.distance_to(arm.hand.position)-0.39))
+					if error>worst_segment:
+						worst_segment = error
+						worst_case = "%s %.3f aim %.2f side %d" % [action,p.combat.elapsed,aim,side]
+	check(worst_grip<0.001,"all sampled hands remain on weapon grips")
+	check(worst_segment<0.002,"all sampled arm segments retain length: "+worst_case+" error "+str(worst_segment))
+	p.combat.set_action("heavy")
+	p.combat.elapsed = 0.18
+	p.animate(0,0)
+	var before: Vector3 = p.rig.torso.rotation
+	p.combat.set_action("light")
+	p.animate(1.0/60,0)
+	check(before.distance_to(p.rig.torso.rotation)<0.12,"runtime action change blends torso rather than snapping")
+	check(is_zero_approx(p.combat.elapsed),"presentation does not advance authoritative combat time")
+	print("TORSO_MOTION_CHECKS: ",checks," FAILURES: ",failures)
+	world.queue_free()
+	await process_frame
+	quit(1 if failures else 0)

@@ -180,7 +180,7 @@ func animate(delta: float, speed: float) -> void:
 				w.rotation.y = -1.5+p*(TAU if combat.action in ["turn","spin","finisher"] else 3)
 				if combat.action in ["heavy","turn"]: w.rotation.x += clampf(pitch+0.25,-0.4,0.85)*1.22
 			"guard","reply":
-				w.rotation.y = clampf(t/0.18,0,1)*PI
+				w.rotation.y = PI if combat.action=="reply" else clampf(t/0.18,0,1)*PI
 				w.position.z += 0.55
 				if combat.action=="reply": w.position.z -= sin(p*PI)*0.18
 			"plant","wait","counter_window":
@@ -192,6 +192,7 @@ func animate(delta: float, speed: float) -> void:
 		w.transform = pose_from.interpolate_with(w.transform,smoothstep(0,1,pose_blend))
 	for i in ghosts.size(): ghosts[i].visible = i<combat.shadow_lifetimes.size()
 	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta)
+	HunterModel.pose_torso(rig,combat.action,combat.elapsed,walk_clock,speed,delta)
 	HunterModel.pose_arms(rig,combat.drawn and not is_instance_valid(projectile),walk_clock)
 
 func take_damage(amount: float, origin: Vector3, blockable: bool, interrupt := true) -> void:

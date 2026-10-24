@@ -1,0 +1,44 @@
+extends RefCounted
+## Waist-driven anticipation, contact and recovery. These curves never change combat time.
+## Key = (seconds, forward/back lean, torso yaw, upper-body fore/aft offset).
+const KEYS := {
+	"light":[Vector4(0,0,0,0),Vector4(0.11,0.035,-0.10,0.012),Vector4(0.25,-0.10,0.10,-0.035),Vector4(0.40,-0.04,0.04,-0.01),Vector4(0.66,0,0,0)],
+	"heavy":[Vector4(0,0,0,0),Vector4(0.18,0.04,-0.30,0.02),Vector4(0.43,-0.08,0.08,-0.025),Vector4(0.61,-0.04,0.28,-0.015),Vector4(0.92,0,0,0)],
+	"pull":[Vector4(0,0,0,0),Vector4(0.25,-0.08,-0.13,-0.025),Vector4(0.40,-0.035,-0.02,-0.01),Vector4(0.56,0.12,0.13,0.045),Vector4(0.86,0,0,0)],
+	"guard":[Vector4(0,0,0,0),Vector4(0.18,0.06,-0.12,0.018),Vector4(1.20,0.06,-0.12,0.018),Vector4(1.40,0,0,0)],
+	"reply":[Vector4(0,0,-0.10,0),Vector4(0.12,0.04,-0.14,0.02),Vector4(0.26,-0.13,0.16,-0.045),Vector4(0.42,-0.04,0.06,-0.01),Vector4(0.67,0,0,0)],
+	"flash":[Vector4(0,0,-0.10,0),Vector4(0.23,-0.14,0.10,-0.06),Vector4(0.39,-0.06,0.03,-0.02),Vector4(0.58,0,0,0)],
+	"plant":[Vector4(0,0,0,0),Vector4(0.30,-0.20,0,-0.025),Vector4(0.55,-0.12,0,-0.015),Vector4(0.65,-0.08,0,0)],
+	"finisher":[Vector4(0,0,0,0),Vector4(0.22,-0.08,-0.25,-0.02),Vector4(0.43,-0.08,0.22,-0.02),Vector4(0.67,0.04,-0.10,0.01),Vector4(0.95,0.20,-0.12,0.035),Vector4(1.14,0.10,-0.04,0.02),Vector4(1.45,0,0,0)],
+	"throw":[Vector4(0,0,0,0),Vector4(0.20,0.09,-0.23,0.02),Vector4(0.38,-0.15,0.20,-0.045),Vector4(0.80,0,0,0)],
+	"hurt":[Vector4(0,0,0,0),Vector4(0.12,0.18,-0.06,0.025),Vector4(0.55,0,0,0)]
+}
+static func sample(action: String, elapsed: float, gait: float, speed: float) -> Vector4:
+	if KEYS.has(action): return interpolate(KEYS[action],elapsed)
+	if action in ["wait","counter_window"]: return Vector4(elapsed,-0.08,0,0)
+	if action=="fourfold":
+		var lean := 0.0
+		var twist := 0.0
+		for index in 4:
+			var pulse := exp(-pow((elapsed-(0.18+index*0.25))/0.09,2))*smoothstep(0,0.07,elapsed)
+			lean -= pulse*0.075
+			twist += pulse*(0.10 if index%2==0 else -0.10)
+		return Vector4(elapsed,lean,twist,lean*0.25)
+	if action in ["turn","spin"]:
+		var duration := 0.95 if action=="turn" else 1.35
+		var weight := sin(clampf(elapsed/duration,0,1)*PI)
+		return Vector4(elapsed,-0.06*weight,sin(elapsed/duration*TAU-0.8)*0.28*weight,-0.015*weight)
+	if action=="dodge":
+		var weight := sin(clampf(elapsed/0.55,0,1)*PI)
+		return Vector4(elapsed,-0.23*weight,0,-0.03*weight)
+	return Vector4(elapsed,-minf(speed,6.3)*0.008,sin(gait)*minf(speed,4.5)*0.008,0)
+
+static func interpolate(keys: Array, elapsed: float) -> Vector4:
+	if elapsed<=float(keys[0].x): return keys[0]
+	for index in range(1,keys.size()):
+		var a: Vector4 = keys[index-1]
+		var b: Vector4 = keys[index]
+		if elapsed<=b.x:
+			var weight := smoothstep(a.x,b.x,elapsed)
+			return a.lerp(b,weight)
+	return keys[-1]

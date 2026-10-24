@@ -1,5 +1,5 @@
 extends RefCounted
-## Rigid-weighted segmented skin: an editable skeletal asset, not final smooth organic topology.
+## Segmented skeletal skin with a blended waist; final organic topology remains unfinished.
 static func bind(rig: Dictionary) -> Dictionary:
 	var root: Node3D = rig.root
 	var sources: Array[MeshInstance3D] = []
@@ -11,9 +11,16 @@ static func bind(rig: Dictionary) -> Dictionary:
 	skeleton.set_bone_rest(0,Transform3D.IDENTITY)
 	var skin := Skin.new()
 	skin.add_bind(0,Transform3D.IDENTITY)
+	var spine := skeleton.add_bone("Spine")
+	var spine_rest: Transform3D = rig.torso.transform
+	skeleton.set_bone_parent(spine,0)
+	skeleton.set_bone_rest(spine,spine_rest)
+	skeleton.set_bone_pose_position(spine,spine_rest.origin)
+	skin.add_bind(spine,spine_rest.affine_inverse())
 	var bindings := []
 	var indices := {}
 	var rests := {}
+	rests[spine] = spine_rest
 	var labels := {}
 	for side in [-1,1]:
 		var prefix := "Left" if side==-1 else "Right"
@@ -41,7 +48,8 @@ static func bind(rig: Dictionary) -> Dictionary:
 			vertices[vertex] = global_rest*vertices[vertex]
 			if vertex<normals.size(): normals[vertex] = (normal_basis*normals[vertex]).normalized()
 			bones.append_array(PackedInt32Array([bone,0,0,0]))
-			weights.append_array(PackedFloat32Array([1,0,0,0]))
+			var influence := smoothstep(0.98,1.20,vertices[vertex].y) if source.name=="Undercoat" else 1.0
+			weights.append_array(PackedFloat32Array([influence,1-influence,0,0]))
 		arrays[Mesh.ARRAY_VERTEX] = vertices
 		arrays[Mesh.ARRAY_NORMAL] = normals
 		arrays[Mesh.ARRAY_BONES] = bones
@@ -50,6 +58,7 @@ static func bind(rig: Dictionary) -> Dictionary:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
 		var rendered := MeshInstance3D.new()
 		rendered.name = "SkinPart_%02d" % i
+		rendered.set_meta("source_part",str(source.name))
 		rendered.mesh = mesh
 		rendered.material_override = source.material_override
 		rendered.skeleton = NodePath("..")
@@ -59,33 +68,28 @@ static func bind(rig: Dictionary) -> Dictionary:
 		bindings.append({"source":source,"bone":bone,"rendered":rendered})
 		indices[source.get_instance_id()] = bone
 		rests[bone] = rest
+	for source in sources:
+		if rig.torso.is_ancestor_of(source): parent_bone(skeleton,indices[source.get_instance_id()],spine,rests)
 	# Forearm and hand are true descendants, rather than independent root transforms.
 	for side in [-1,1]:
 		var arm: Dictionary = rig.arms[side]
 		var upper: int = indices[arm.upper.get_instance_id()]
 		var lower: int = indices[arm.lower.get_instance_id()]
 		var hand: int = indices[arm.hand.get_instance_id()]
-		for pair in [[lower,upper],[hand,lower]]:
-			var child: int = pair[0]
-			var parent: int = pair[1]
-			var local: Transform3D = rests[parent].affine_inverse()*rests[child]
-			skeleton.set_bone_parent(child,parent)
-			skeleton.set_bone_rest(child,local)
-			skeleton.set_bone_pose_position(child,local.origin)
-			skeleton.set_bone_pose_rotation(child,local.basis.get_rotation_quaternion())
+		for pair in [[upper,spine],[lower,upper],[hand,lower]]: parent_bone(skeleton,pair[0],pair[1],rests)
 		var leg: Dictionary = rig.legs[side]
 		var thigh: int = indices[leg.thigh.get_instance_id()]
 		var shin: int = indices[leg.shin.get_instance_id()]
 		var boot: int = indices[leg.boot.get_instance_id()]
-		for pair in [[shin,thigh],[boot,shin]]:
-			var child: int = pair[0]
-			var parent: int = pair[1]
-			var local: Transform3D = rests[parent].affine_inverse()*rests[child]
-			skeleton.set_bone_parent(child,parent)
-			skeleton.set_bone_rest(child,local)
-			skeleton.set_bone_pose_position(child,local.origin)
-			skeleton.set_bone_pose_rotation(child,local.basis.get_rotation_quaternion())
-	return {"skeleton":skeleton,"skin":skin,"bindings":bindings}
+		for pair in [[shin,thigh],[boot,shin]]: parent_bone(skeleton,pair[0],pair[1],rests)
+	return {"skeleton":skeleton,"skin":skin,"bindings":bindings,"spine":spine}
+
+static func parent_bone(skeleton: Skeleton3D, child: int, parent: int, rests: Dictionary) -> void:
+	var local: Transform3D = rests[parent].affine_inverse()*rests[child]
+	skeleton.set_bone_parent(child,parent)
+	skeleton.set_bone_rest(child,local)
+	skeleton.set_bone_pose_position(child,local.origin)
+	skeleton.set_bone_pose_rotation(child,local.basis.get_rotation_quaternion())
 
 static func relative_transform(node: Node3D, root: Node3D) -> Transform3D:
 	var transform := node.transform
@@ -105,6 +109,7 @@ static func update(rig: Dictionary) -> void:
 	if not rig.has("skinning"): return
 	var data: Dictionary = rig.skinning
 	var skeleton: Skeleton3D = data.skeleton
+	skeleton.set_bone_global_pose(data.spine,rig.torso.transform)
 	for binding in data.bindings:
 		var pose := relative_transform(binding.source,rig.root)
 		pose.basis = pose.basis.orthonormalized()

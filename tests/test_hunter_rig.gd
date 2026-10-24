@@ -36,6 +36,12 @@ func run() -> void:
 	var head_end: Vector3 = p.rig.weapon.transform*Vector3(0,1.1,0)
 	var butt_end: Vector3 = p.rig.weapon.transform*Vector3(0,-0.93,0)
 	check(head_end.z>0 and butt_end.z<0,"guard rotates head rearward and butt forward")
+	p.combat.set_action("reply")
+	p.combat.elapsed = 0
+	p.animate(0,0)
+	var reply_head: Vector3 = p.rig.weapon.transform*Vector3(0,1.1,0)
+	var reply_butt: Vector3 = p.rig.weapon.transform*Vector3(0,-0.93,0)
+	check(reply_head.z>0 and reply_butt.z<0,"reply begins from braced butt-forward guard rather than rewinding")
 	for aim in [-0.9,0.65]:
 		p.pitch = aim
 		p.combat.set_action("light")
