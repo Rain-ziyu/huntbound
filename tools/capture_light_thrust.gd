@@ -41,7 +41,7 @@ func run() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	p.yaw = 0
 	var action := "light"
-	for candidate in ["heavy","pull","throw","plant"]:
+	for candidate in ["heavy","pull","throw","plant","reply"]:
 		if "--"+candidate in OS.get_cmdline_user_args(): action = candidate
 	p.combat.set_action(action)
 	if action=="plant":
@@ -50,6 +50,7 @@ func run() -> void:
 	p.rig.root.rotation.y = 0
 	for i in 3:
 		var times := {"light":[0.11,0.25,0.34],"heavy":[0.18,0.43,0.60],"pull":[0.22,0.40,0.58],"throw":[0.0,0.20,0.37],"plant":[0.18,0.34,0.60]}
+		times["reply"] = [0.12,0.26,0.42]
 		var t: float = times[action][i]
 		p.combat.elapsed = t
 		p.animate(0,0)
@@ -64,6 +65,7 @@ func run() -> void:
 		frame.convert(Image.FORMAT_RGB8)
 		sheet.blit_rect(frame,Rect2i(0,0,800,600),Vector2i(i*800,0))
 	var paths := {"light":"Shubian-light-thrust","heavy":"Shubian-heavy-sweep","pull":"Shubian-pull-motion","throw":"Shubian-throw-motion","plant":"Shubian-plant-motion"}
+	paths["reply"] = "Shubian-reply-motion"
 	sheet.save_png(ProjectSettings.globalize_path("res://../"+str(paths[action])+".png"))
 	stage.queue_free()
 	await process_frame

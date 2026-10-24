@@ -324,7 +324,7 @@ func animate(delta: float, speed: float) -> void:
 			"guard","reply":
 				w.rotation.y = PI if combat.action=="reply" else clampf(t/0.18,0,1)*PI
 				w.position.z += 0.55
-				if combat.action=="reply": w.position.z -= sin(p*PI)*0.18
+				if combat.action=="reply": w.position.z += HunterModel.Motion.interpolate(HunterModel.Motion.REPLY_WEAPON,t).z
 			"plant","wait","counter_window":
 				var seated := planted_weapon_height()
 				w.position = Vector3(0,seated,-0.35)

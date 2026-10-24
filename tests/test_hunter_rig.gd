@@ -42,6 +42,16 @@ func run() -> void:
 	var reply_head: Vector3 = p.rig.weapon.transform*Vector3(0,1.1,0)
 	var reply_butt: Vector3 = p.rig.weapon.transform*Vector3(0,-0.93,0)
 	check(reply_head.z>0 and reply_butt.z<0,"reply begins from braced butt-forward guard rather than rewinding")
+	var braced_butt: Vector3 = p.rig.weapon.get_node("ButtContact").global_position
+	var butt_positions: Array[Vector3] = []
+	for time in [0.12,0.26,0.34,0.42,0.67]:
+		p.combat.elapsed = time
+		p.animate(0,0)
+		butt_positions.append(p.rig.weapon.get_node("ButtContact").global_position)
+	check(butt_positions[0].z>braced_butt.z,"reply draws back before driving the butt")
+	check(butt_positions[1].z<butt_positions[0].z-0.15,"reply drives forward at the damage beat")
+	check(butt_positions[2].z>butt_positions[1].z and butt_positions[3].z>butt_positions[2].z,"reply recoils immediately after contact rather than extending late")
+	check(absf(butt_positions[4].z-braced_butt.z)<0.001,"reply settles back into its braced position")
 	for aim in [-0.9,0.65]:
 		p.pitch = aim
 		p.combat.set_action("light")
