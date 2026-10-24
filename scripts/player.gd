@@ -21,6 +21,13 @@ var projectile: Node3D
 var pose_action := ""
 var pose_from := Transform3D.IDENTITY
 var pose_blend := 1.0
+var pose_drawn := false
+var pose_duration := 0.10
+var equipment_grip := 0.0
+var equipment_from := 0.0
+var equipment_main := 0.0
+var equipment_main_from := 0.0
+var equipment_route := false
 var strike_windows: Array[Dictionary] = []
 var camera: Camera3D
 var shake_time := 0.0
@@ -154,9 +161,14 @@ func _physics_process(delta: float) -> void:
 		motion_epoch += 1
 
 func animate(delta: float, speed: float) -> void:
-	if combat.action!=pose_action:
+	if combat.action!=pose_action or combat.drawn!=pose_drawn:
+		equipment_route = combat.drawn!=pose_drawn
+		pose_duration = 0.30 if pose_drawn and not combat.drawn else 0.10
+		equipment_from = equipment_grip
+		equipment_main_from = equipment_main
 		pose_from = rig.weapon.transform
 		pose_action = combat.action
+		pose_drawn = combat.drawn
 		pose_blend = 0.0
 	walk_clock += delta*speed*2.6
 	for side in [-1,1]:
@@ -191,12 +203,21 @@ func animate(delta: float, speed: float) -> void:
 				w.rotation = Vector3(0,0,PI)
 			"throw": w.visible = t<0.38
 	if delta>0:
-		pose_blend = minf(1,pose_blend+delta/0.10)
+		pose_blend = minf(1,pose_blend+delta/pose_duration)
+		var goal := w.transform
 		w.transform = pose_from.interpolate_with(w.transform,smoothstep(0,1,pose_blend))
+		if equipment_route:
+			var arc := Vector3(maxf(0,0.40-absf(pose_from.origin.x)),maxf(0,1.65-maxf(pose_from.origin.y,goal.origin.y)),0)
+			w.position += arc*sin(smoothstep(0,1,pose_blend)*PI)
+		equipment_grip = lerpf(equipment_from,1.0 if combat.drawn else 0.0,smoothstep(0,0.7,pose_blend))
+		equipment_main = lerpf(equipment_main_from,1.0,smoothstep(0,0.7,pose_blend)) if combat.drawn else lerpf(equipment_main_from,0.0,smoothstep(0.82,1,pose_blend))
+	else:
+		equipment_grip = 1.0 if combat.drawn else 0.0
+		equipment_main = equipment_grip
 	for i in ghosts.size(): ghosts[i].visible = i<combat.shadow_lifetimes.size()
 	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
 	HunterModel.pose_torso(rig,combat.action,combat.elapsed,walk_clock,speed,delta)
-	HunterModel.pose_arms(rig,combat.drawn and not is_instance_valid(projectile),walk_clock)
+	HunterModel.pose_arms(rig,(combat.drawn or equipment_grip>0 or equipment_main>0) and not is_instance_valid(projectile),walk_clock,equipment_grip,equipment_main)
 
 func foot_ground_height(local_point: Vector3) -> float:
 	var hit := foot_ground_sample(local_point)
