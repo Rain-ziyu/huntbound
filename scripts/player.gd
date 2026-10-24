@@ -3,6 +3,8 @@ signal hit_confirmed(action: String, beat: int, target: Node3D, result: Dictiona
 const CombatAudio = preload("res://scripts/combat_audio.gd")
 const Defeat = preload("res://scripts/hunter_defeat.gd")
 var defeat = Defeat.new()
+const InputKeys = preload("res://scripts/input_keys.gd")
+var virtual_keys = InputKeys.new()
 const Combat = preload("res://scripts/combat/trident_combat.gd")
 const Visuals = preload("res://scripts/visuals.gd")
 const Projectile = preload("res://scripts/trident_projectile.gd")
@@ -84,15 +86,21 @@ func _ready() -> void:
 		ghost.get_meta("spectral_material").set_shader_parameter("phase_offset",i*0.9)
 		ghosts.append(ghost)
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey: virtual_keys.movement(event)
+
+func _exit_tree() -> void:
+	virtual_keys.release()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if combat.health<=0 and event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]: return
 	if is_instance_valid(projectile):
 		if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]: return
-		if event is InputEventKey and (event.physical_keycode in [KEY_Q,KEY_E,KEY_R] or (event.physical_keycode==KEY_SPACE and event.ctrl_pressed)): return
+		if event is InputEventKey and (InputKeys.code(event) in [KEY_Q,KEY_E,KEY_R] or (InputKeys.code(event)==KEY_SPACE and event.ctrl_pressed)): return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		apply_look(event.relative)
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.physical_keycode:
+		match InputKeys.code(event):
 			KEY_ESCAPE:
 				heavy_held = -1
 				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode==Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
@@ -138,7 +146,9 @@ func update_lock_camera(delta: float) -> void:
 	yaw = lerp_angle(yaw,heading,1-exp(-5.0*delta))
 
 func _notification(what: int) -> void:
-	if what==NOTIFICATION_WM_WINDOW_FOCUS_OUT: heavy_held = -1
+	if what==NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		heavy_held = -1
+		virtual_keys.release()
 
 func clear_body_turn() -> void:
 	if body_turn_applied!=0:

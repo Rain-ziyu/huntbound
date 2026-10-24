@@ -1,4 +1,5 @@
 extends CanvasLayer
+const InputKeys = preload("res://scripts/input_keys.gd")
 const ACTION_NAMES := {"light":"斜刺","heavy":"横扫","pull":"钩齿回拉","turn":"转身甩枪","guard":"枪尾架势","reply":"枪尾反击","flash":"闪刺","throw":"投枪","fourfold":"枪意 · 四连刺","spin":"枪意 · 旋枪","plant":"插地蓄势","wait":"插地等待","counter_window":"迎击架势","finisher":"旋枪踢击","dodge":"闪避","hurt":"受击"}
 const PART_NAMES := {"body":"躯干","head":"头部","tail":"尾部","flank":"侧腹","spine":"背棘"}
 var surface: Control
@@ -94,7 +95,7 @@ func _ready() -> void:
 	target_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	target_hint.add_theme_color_override("font_color",Color("e6c57c"))
 func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_F1:
+	if event is InputEventKey and event.pressed and not event.echo and InputKeys.code(event)==KEY_F1:
 		help.visible = not help.visible
 		get_viewport().set_input_as_handled()
 static func followup(c, held: float) -> String:
