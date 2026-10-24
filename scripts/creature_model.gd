@@ -68,7 +68,7 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 			if leg: LegSkin.bind(leg,s)
 	return root
 
-static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float, ground: Callable = Callable(), ground_normal: Callable = Callable(), physical_flight := false) -> void:
+static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float, ground: Callable = Callable(), ground_normal: Callable = Callable(), physical_flight := false, pose_override: Dictionary = {}) -> void:
 	var tail := root.get_node("Tail") as Node3D
 	var tail_gait := gait*(1.7/GAIT_PER_METER)
 	tail.rotation.y = sin(tail_gait*0.5)*0.12
@@ -125,6 +125,11 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 		elif phase=="recover": neck.rotation.x = -0.20*(1-smoothstep(0,0.45,clock))
 	elif data.pattern=="pulse" and phase=="active":
 		neck.rotation.x = -0.20*(1-smoothstep(0,0.30,clock))
+	if not pose_override.is_empty():
+		root.position.y = float(pose_override.get("body_y",root.position.y))
+		root.rotation = pose_override.get("body_rotation",root.rotation)
+		neck.rotation = pose_override.get("neck_rotation",neck.rotation)
+		tail.rotation.y = float(pose_override.get("tail_y",tail.rotation.y))
 	# Bend knees when the torso lowers; solve the planted foot back to actor ground.
 	if phase=="idle": root.position.y -= float(data.size)*0.045*minf(speed/2,1)
 	var limb_speed := speed
@@ -175,10 +180,27 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 						leg.set_meta("plant_forward",leg.global_basis.z.normalized())
 				targets.append({"leg":leg,"target":target,"foot_basis":foot_basis})
 	root.position.y += lowest
+	root.set_meta("ground_offset",lowest)
 	for entry in targets:
 		var target: Vector3 = entry.target
 		target.y -= lowest
-		LegSkin.pose(entry.leg,target,entry.foot_basis)
+		var foot_basis: Basis = entry.foot_basis
+		var feet: Dictionary = pose_override.get("feet",{})
+		if feet.has(str(entry.leg.name)):
+			var saved: Dictionary = feet[str(entry.leg.name)]
+			var blend: float = pose_override.get("blend",1.0)
+			var actor: Node3D = root.get_parent()
+			var from: Vector3 = entry.leg.to_local(actor.to_global(saved.point))
+			target = from.lerp(target,blend)
+			var from_basis: Basis = entry.leg.global_basis.inverse()*actor.global_basis*saved.basis
+			foot_basis = Basis(from_basis.get_rotation_quaternion().slerp(foot_basis.get_rotation_quaternion(),blend))
+			if ground.is_valid():
+				var sole_offset := Vector3(0,-float(data.size)*0.05,-float(data.size)*0.10)
+				var point: Vector3 = entry.leg.to_global(target+foot_basis*sole_offset)
+				var floor_y: float = actor.global_position.y+ground.call(point)
+				if point.y<floor_y:
+					target += entry.leg.global_basis.inverse()*Vector3.UP*(floor_y-point.y)
+		LegSkin.pose(entry.leg,target,foot_basis)
 
 static func charge_visuals(root: Node3D, data: Dictionary, phase: String, clock: float) -> void:
 	var load := smoothstep(0,float(data.windup),clock) if phase=="windup" else 0.0

@@ -3,6 +3,10 @@ const Visuals = preload("res://scripts/visuals.gd")
 const Hazard = preload("res://scripts/hazard.gd")
 const CreatureModel = preload("res://scripts/creature_model.gd")
 const Parts = preload("res://scripts/monster_parts.gd")
+const StaggerPose = preload("res://scripts/creature_stagger_pose.gd")
+var stagger_pose = StaggerPose.new()
+var was_staggering := false
+var stagger_recovery := false
 const TailContact = preload("res://scripts/tail_contact.gd")
 const LungeWarning = preload("res://scripts/lunge_warning.gd")
 const LEAP_DURATION := 0.65
@@ -148,6 +152,10 @@ func _physics_process(delta: float) -> void:
 	exposed = maxf(0,exposed-delta)
 	if not is_on_floor(): velocity.y -= (LEAP_GRAVITY if airborne_leap else 25.0)*delta
 	if stagger > 0:
+		if not was_staggering: stagger_pose.begin(self)
+		was_staggering = true
+		stagger_recovery = true
+		rear_attack = false
 		CreatureModel.charge_visuals(mesh,data,"recover",0)
 		phase = "recover"
 		clock = 0
@@ -155,7 +163,9 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x,0,8*delta)
 		velocity.z = move_toward(velocity.z,0,8*delta)
 		move_actor()
+		stagger_pose.apply(self,delta)
 		return
+	was_staggering = false
 	if not is_instance_valid(target):
 		CreatureModel.charge_visuals(mesh,data,"idle",0)
 		phase = "idle"
@@ -281,7 +291,8 @@ func _physics_process(delta: float) -> void:
 	# Presentation cadence follows travel without turning a lunge into rapid foot flutter.
 	gait += delta*minf(Vector2(velocity.x,velocity.z).length(),float(data.speed)*1.2)*CreatureModel.GAIT_PER_METER
 	var grounded_pose: bool = is_on_floor() and not (phase=="active" and data.pattern=="leap")
-	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length(),foot_ground_height if grounded_pose else Callable(),foot_ground_normal if grounded_pose else Callable(),data.pattern=="leap")
+	if phase!="recover": stagger_recovery = false
+	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length(),foot_ground_height if grounded_pose else Callable(),foot_ground_normal if grounded_pose else Callable(),data.pattern=="leap",StaggerPose.neutral() if stagger_recovery else {})
 	var head: Transform3D = mesh.get_node("Neck").global_transform
 	if data.pattern=="sweep" and phase=="active" and clock>=0.08 and clock<=0.45 and not attack_done:
 		var start: Vector3 = previous_head_target if target.motion_epoch==previous_head_epoch else target.global_position
