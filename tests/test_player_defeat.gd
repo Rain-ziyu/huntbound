@@ -58,13 +58,16 @@ func run() -> void:
 	retry.physical_keycode = KEY_F5
 	retry.pressed = true
 	p._unhandled_input(retry)
-	await physics_frame
-	await physics_frame
-	await physics_frame
-	var fresh = current_scene.hunter
-	check(fresh.combat.health==240 and not fresh.defeat.started,"F5 creates fresh live hunter after defeat")
-	world = current_scene
+	for frame in 120:
+		if is_instance_valid(current_scene) and current_scene!=world and current_scene.get("hunter")!=null: break
+		await process_frame
+	var ready: bool = is_instance_valid(current_scene) and current_scene!=world and current_scene.get("hunter")!=null
+	check(ready,"F5 completes deferred scene replacement")
+	if ready:
+		var fresh = current_scene.hunter
+		check(fresh.combat.health==240 and not fresh.defeat.started,"F5 creates fresh live hunter after defeat")
+		world = current_scene
 	print("PLAYER_DEFEAT_CHECKS: ",checks," FAILURES: ",failures)
-	world.queue_free()
+	if is_instance_valid(world): world.queue_free()
 	await process_frame
 	quit(1 if failures else 0)
