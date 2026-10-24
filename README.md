@@ -36,6 +36,16 @@
 - `tests`：后续行为与联机测试。
 - `builds`：本地导出产物，不提交到 Git。
 
+## 模型重建
+
+五种巨兽的模型源代码为 `scripts/creature_model.gd` 与 `scripts/creature_surface.gd`。在项目根目录执行以下图形模式命令，可重建 `assets/models/*-v1.tscn` 五份预览模型，并在项目父目录输出总览和各物种近景：
+
+```powershell
+& 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tools/capture_creature_models.gd
+```
+
+保存的巨兽模型是静态节点资产，游戏内仍由同一套源代码生成并播放程序化动作；尚不是完成蒙皮与动作库的正式巨兽资产。
+
 ## 版本管理
 
 主分支为 `main`。提交 Godot 场景、脚本、源素材和 `.uid` 文件，忽略 `.godot` 缓存。

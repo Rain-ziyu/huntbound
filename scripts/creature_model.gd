@@ -1,6 +1,7 @@
 extends RefCounted
 const V = preload("res://scripts/visuals.gd")
 const H = preload("res://scripts/hunter_model.gd")
+const Surface = preload("res://scripts/creature_surface.gd")
 
 static func create(parent: Node3D, data: Dictionary) -> Node3D:
 	var root := V.pivot(parent,"CreatureMesh",Vector3.ZERO)
@@ -8,41 +9,55 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 	var c := Color(data.color)
 	var quad: bool = "quadruped" in data.body
 	var y := s*0.50 if quad else s*0.64
-	V.piece(root,Vector3(0,y,0),Vector3(s*0.75,s*0.55,s*1.1),c,true)
+	var body := Surface.profile(root,"BodySurface",[Vector4(-0.56,0.08,0.12,0.03),Vector4(-0.42,0.28,0.23,0.025),Vector4(-0.15,0.37,0.285,0),Vector4(0.20,0.34,0.26,0),Vector4(0.43,0.22,0.20,-0.025),Vector4(0.56,0.08,0.12,-0.025)],s,c)
+	body.position.y = y
+	if data.id=="reedclaw": body.scale = Vector3(0.80,0.85,1)
+	elif data.id=="mistfrill": body.scale = Vector3(0.85,0.90,1)
 	var neck := V.pivot(root,"Neck",Vector3(0,y,-s*0.40))
-	V.piece(neck,Vector3(0,s*0.08,-s*0.13),Vector3(s*0.34,s*0.38,s*0.55),c,true)
-	V.piece(neck,Vector3(0,s*0.14,-s*0.40),Vector3(s*0.40,s*0.32,s*0.52),c.lightened(0.1),true)
-	V.piece(neck,Vector3(0,0,-s*0.49),Vector3(s*0.32,s*0.10,s*0.34),c.darkened(0.2),true)
+	var head_width := 0.78 if data.id in ["reedclaw","mistfrill"] else 1.0
+	Surface.profile(neck,"HeadSurface",[Vector4(-0.69,0.035*head_width,0.02,0.06),Vector4(-0.61,0.14*head_width,0.065,0.085),Vector4(-0.42,0.19*head_width,0.14,0.14),Vector4(-0.28,0.16*head_width,0.145,0.12),Vector4(-0.09,0.135,0.17,0.08),Vector4(0.12,0.10,0.15,0)],s,c.lightened(0.03))
+	Surface.profile(neck,"Jaw",[Vector4(-0.66,0.035*head_width,0.015,-0.04),Vector4(-0.58,0.13*head_width,0.035,-0.05),Vector4(-0.30,0.145*head_width,0.055,-0.045),Vector4(-0.12,0.06,0.025,0.01)],s,c.darkened(0.16))
 	for side in [-1,1]:
-		V.piece(neck,Vector3(side*s*0.19,s*0.18,-s*0.48),Vector3(0.11,0.10,0.11),Color("dba75d"),true)
+		V.piece(neck,Vector3(side*s*0.158*head_width,s*0.20,-s*0.43),Vector3(s*0.028,s*0.02,s*0.045),Color("dba75d"),true)
+		V.piece(neck,Vector3(side*s*0.169*head_width,s*0.20,-s*0.436),Vector3(s*0.006,s*0.018,s*0.012),Color("1c2721"),true)
+		var brow := Surface.profile(neck,"EyeRidge"+str(side),[Vector4(-0.51,0.01,0.012,0.235),Vector4(-0.43,0.028,0.025,0.24),Vector4(-0.30,0.015,0.025,0.24)],s,c.darkened(0.14))
+		brow.position.x = side*s*0.15*head_width
+		for tooth in 5:
+			H.tapered(neck,Vector3(side*s*0.10*head_width,-s*0.005,s*(-0.56+tooth*0.045)),s*0.014,s*0.001,s*0.06,Color("c6c5aa"))
 		for front in ([false,true] if quad else [false]):
 			var leg := V.pivot(root,("Front" if front else "Hind")+str(side),Vector3(side*s*0.29,y*0.9,-s*0.31 if front else s*0.28))
-			H.tapered(leg,Vector3(0,-s*0.14,0),s*0.13,s*0.09,s*0.34,c.darkened(0.15))
-			V.piece(leg,Vector3(0,-s*0.29,s*0.04),Vector3(s*0.19,s*0.18,s*0.20),c,true)
-			H.tapered(leg,Vector3(0,-s*0.37,s*0.03),s*0.085,s*0.06,s*0.25,c)
-			V.piece(leg,Vector3(0,-y*0.86,-s*0.10),Vector3(s*0.21,s*0.10,s*0.35),c.darkened(0.25),true)
+			var bottom := -y*0.9/s+0.075
+			Surface.vertical(leg,"LegSurface",[Vector4(bottom,0.055,0.06,0.025),Vector4(bottom*0.78,0.066,0.075,0.05),Vector4(bottom*0.56,0.092,0.09,-0.04),Vector4(bottom*0.28,0.13,0.12,-0.02),Vector4(0.025,0.13,0.14,0)],s,c)
+			var foot_y := -y*0.9+s*0.05
+			var foot := V.piece(leg,Vector3(0,foot_y,-s*0.10),Vector3(s*0.21,s*0.10,s*0.35),c.darkened(0.25),true)
+			foot.name = "Foot"
+			for toe in [-1,0,1]:
+				var claw := H.tapered(leg,Vector3(toe*s*0.055,foot_y+s*0.015,-s*0.25),s*0.001,s*0.017,s*(0.20 if data.id=="reedclaw" else 0.14),Color("b6ba9b"))
+				claw.rotation.x = -PI/2
+				claw.name = "Claw"+str(toe)
 		if not quad:
-			V.piece(root,Vector3(side*s*0.28,y,-s*0.39),Vector3(s*0.12,s*0.30,s*0.16),c)
+			var arm := Surface.profile(root,"Forelimb"+str(side),[Vector4(-0.24,0.02,0.03,-0.13),Vector4(-0.12,0.045,0.055,-0.10),Vector4(0.02,0.055,0.07,0)],s,c)
+			arm.position = Vector3(side*s*0.28,y,-s*0.35)
 	var tail := V.pivot(root,"Tail",Vector3(0,y*0.85,s*0.45))
-	for i in 5:
-		var width := s*(0.24-i*0.037)
-		V.piece(tail,Vector3(0,-s*i*0.015,s*i*0.20),Vector3(width,width,s*0.30),c,true)
+	var length := 1.55 if data.id=="reedclaw" else (0.85 if data.id=="thornhorn" else 1.10)
+	Surface.profile(tail,"TailSurface",[Vector4(-0.06,0.14,0.15,0),Vector4(0.14*length,0.125,0.125,-0.015),Vector4(0.40*length,0.085,0.085,-0.035),Vector4(0.70*length,0.045,0.04,-0.055),Vector4(0.96*length,0.008,0.008,-0.065)],s,c)
 	if data.id=="mossback":
 		for i in 5:
-			var plate := V.piece(root,Vector3(0,y+s*0.27,(i-2)*s*0.18),Vector3(s*0.70,s*0.16,s*0.22),c.darkened(0.28),true)
-			plate.name = "ArmorPlate"+str(i)
+			var taper := 1.0-absf(i-2)*0.12
+			var plate := Surface.profile(root,"ArmorPlate"+str(i),[Vector4(-0.13,0.28*taper,0.06*taper,0),Vector4(-0.07,0.37*taper,0.24*taper,0),Vector4(0.09,0.35*taper,0.21*taper,0),Vector4(0.14,0.27*taper,0.05*taper,0)],s,c.darkened(0.16),-PI/2,PI/2,false)
+			plate.position = Vector3(0,y+s*0.045,(i-2)*s*0.18)
+			plate.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
 	elif data.id=="thornhorn":
 		for side in [-1,1]:
-			var horn := H.tapered(neck,Vector3(side*s*0.17,s*0.43,-s*0.36),0.005,s*0.065,s*0.46,Color("c4b89a"))
-			horn.rotation.x = -0.55
+			var horn := Surface.profile(neck,"BrowHorn"+str(side),[Vector4(-0.70,0.003,0.003,0.69),Vector4(-0.61,0.018,0.025,0.58),Vector4(-0.49,0.045,0.05,0.43),Vector4(-0.34,0.067,0.065,0.29)],s,Color("c4b89a"))
+			horn.position.x = side*s*0.15
 	elif data.id=="mistfrill":
-		V.piece(neck,Vector3(0,s*0.24,0),Vector3(s*0.92,s*0.65,0.12),c.lightened(0.2),true)
-	elif data.id=="reedclaw":
-		for side in [-1,1]:
-			V.piece(root,Vector3(side*s*0.29,y*0.12,-s*0.15),Vector3(s*0.08,s*0.15,s*0.35),Color("b6ba9b"))
+		Surface.frill(neck,s,c.lightened(0.08))
+		for side in [-1,1]: V.piece(neck,Vector3(side*s*0.13,s*0.01,-s*0.24),Vector3(s*0.16,s*0.16,s*0.20),Color("8d9e65"),true)
 	elif data.id=="stormcrest":
 		for i in 5:
-			H.tapered(root,Vector3(0,y+s*0.35,(i-2)*s*0.18),0.005,s*0.06,s*0.52,Color("78b9b5"))
+			var crest := Surface.profile(root,"Crest"+str(i),[Vector4(-0.12,0.008,0.01,0),Vector4(-0.05,0.035,0.24,0.22),Vector4(0.025,0.03,0.27,0.24),Vector4(0.13,0.008,0.01,0)],s,Color("78b9b5"))
+			crest.position = Vector3(0,y+s*0.22,(i-2)*s*0.19)
 	return root
 
 static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float) -> void:
@@ -55,6 +70,10 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 	var tail := root.get_node("Tail") as Node3D
 	tail.rotation.y = sin(gait*0.5)*0.12
 	var neck := root.get_node("Neck") as Node3D
+	var frill := neck.get_node_or_null("Frill") as MeshInstance3D
+	if frill:
+		var expansion := 1.0+smoothstep(0,float(data.windup),clock)*0.12 if phase=="windup" else 1.0
+		frill.scale = Vector3(expansion,expansion,1)
 	neck.rotation.x = 0
 	neck.rotation.y = 0
 	if phase=="windup":
