@@ -19,6 +19,9 @@ var mesh: Node3D
 var tell: MeshInstance3D
 var label: Label3D
 var attack_done := false
+var rear_attack := false
+var rear_cooldown := 0.0
+var rear_tell: MeshInstance3D
 var disrupted := 0.0
 var exposed := 0.0
 var impact_time := 0.0
@@ -49,6 +52,22 @@ func _ready() -> void:
 	weak_marker.material_override = Visuals.mat(Color("e6c57c"),true)
 	tell = Visuals.piece(self,Vector3(0,0.05,0),Vector3(float(data.reach)*2,0.025,float(data.reach)*2),Color("b48848"),true)
 	tell.visible = false
+	rear_tell = MeshInstance3D.new()
+	var sector := SurfaceTool.new()
+	sector.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 32:
+		var a := lerpf(-1.3,1.3,float(i)/32)
+		var b := lerpf(-1.3,1.3,float(i+1)/32)
+		for point in [Vector3.ZERO,Vector3(sin(a),0,cos(a)),Vector3(sin(b),0,cos(b))]: sector.add_vertex(point)
+	sector.generate_normals()
+	rear_tell.mesh = sector.commit()
+	rear_tell.material_override = Visuals.mat(Color("d3a45a"),true)
+	rear_tell.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
+	rear_tell.material_override.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rear_tell.material_override.albedo_color.a = 0.38
+	rear_tell.position.y = 0.08
+	rear_tell.visible = false
+	add_child(rear_tell)
 	label = Label3D.new()
 	label.position.y = float(data.size)*1.5
 	label.font_size = 42
@@ -71,6 +90,8 @@ func _process(delta: float) -> void:
 		for part in impact_meshes: part.material_overlay = null
 
 func _physics_process(delta: float) -> void:
+	rear_cooldown = maxf(0,rear_cooldown-delta)
+	rear_tell.visible = false
 	if health <= 0:
 		collision_layer = 0
 		collision_mask = 0
@@ -80,6 +101,7 @@ func _physics_process(delta: float) -> void:
 		label.text = str(data.name)+" 已击退"
 		return
 	label.text = "%s  %d/%d\n%s" % [data.name,ceili(health),int(data.health),data.weakness]
+	if rear_attack and phase=="windup": label.text += "\n摆尾蓄势 · 离开后方扇区"
 	weak_marker.visible = data.weak_side=="rear" or (data.weak_side=="front" and phase=="windup") or (data.weak_side=="flank" and exposed>0)
 	if data.id=="stormcrest": weak_marker.visible = phase=="windup" or stagger>0
 	stagger = maxf(0,stagger-delta)
@@ -108,6 +130,9 @@ func _physics_process(delta: float) -> void:
 	route_time -= delta
 	velocity.x = 0
 	velocity.z = 0
+	if rear_attack and phase!="idle":
+		advance_rear_attack(delta)
+		return
 	if phase == "idle":
 		if distance < 20 and target.combat.health > 0:
 			if distance > float(data.reach)*0.82 or not clear_line_to(target.global_position):
@@ -123,6 +148,8 @@ func _physics_process(delta: float) -> void:
 				rotation.y = lerp_angle(rotation.y,atan2(-chase.x,-chase.z),delta*2.5)
 				velocity += chase*float(data.speed)
 			else:
+				rear_attack = data.has("rear_attack") and rear_cooldown<=0 and offset.normalized().dot(-global_basis.z)< -0.35
+				if rear_attack: rear_cooldown = 5.0
 				phase = "windup"
 				clock = 0
 				target_point = target.global_position
@@ -170,6 +197,44 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	gait += delta*Vector2(velocity.x,velocity.z).length()*1.7
 	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length())
+
+func rear_contains(point: Vector3) -> bool:
+	var local := to_local(point)
+	var horizontal := Vector2(local.x,local.z)
+	return absf(local.y)<2.5 and horizontal.length()<float(data.rear_attack.reach) and horizontal.normalized().dot(Vector2(0,1))>cos(1.3)
+
+func advance_rear_attack(delta: float) -> void:
+	var move: Dictionary = data.rear_attack
+	tell.visible = false
+	rear_tell.visible = phase in ["windup","active"]
+	rear_tell.scale = Vector3(float(move.reach),1,float(move.reach))
+	var tail_yaw := 0.0
+	if phase=="windup":
+		tail_yaw = -0.9*smoothstep(0,float(move.windup),clock)
+		if clock>=float(move.windup):
+			phase = "active"
+			clock = 0
+	elif phase=="active":
+		tail_yaw = lerpf(-0.9,0.9,smoothstep(0,0.50,clock))
+		if clock>=0.25 and not attack_done:
+			attack_done = true
+			if rear_contains(target.global_position) and clear_line_to(target.global_position):
+				target.take_damage(float(move.damage),global_position,true)
+		if clock>=0.65:
+			phase = "recover"
+			clock = 0
+			exposed = float(move.recovery)
+			rear_tell.visible = false
+	elif phase=="recover":
+		tail_yaw = 0.9*(1-smoothstep(0,float(move.recovery),clock))
+		if clock>=float(move.recovery):
+			phase = "idle"
+			clock = 0
+			rear_attack = false
+	move_and_slide()
+	CreatureModel.animate(mesh,data,gait,"recover",clock,0)
+	mesh.rotation.x = lerpf(mesh.rotation.x,0,delta*6)
+	mesh.get_node("Tail").rotation.y = tail_yaw
 
 func spawn_hazard(point: Vector3, radius: float, duration: float, amount: float, kind: String) -> void:
 	var hazard := Hazard.new()
