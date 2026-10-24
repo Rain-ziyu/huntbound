@@ -87,9 +87,17 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 		root.position.y = -0.45*smoothstep(0,0.4,clock) if data.pattern=="pulse" else 0.0
 	elif phase=="active":
 		if data.pattern=="pulse": root.position.y = -0.45*(1-smoothstep(0,0.3,clock))
-		if data.pattern=="sweep": neck.rotation.y = sin(clock/0.65*PI)*0.8
 		if data.pattern=="leap": root.position.y = sin(clampf(clock/0.65,0,1)*PI)*1.0
 	else: root.position.y = 0
+	if data.pattern=="sweep":
+		# One continuous pull-back, crossing sweep and follow-through, with no phase snap.
+		if phase=="windup":
+			neck.rotation.y = -0.65*smoothstep(0,float(data.windup),clock)
+		elif phase=="active":
+			neck.rotation.y = lerpf(-0.65,0.85,smoothstep(0,0.40,clock))
+			neck.rotation.x = -0.20*(1-smoothstep(0,0.30,clock))
+		elif phase=="recover":
+			neck.rotation.y = 0.85*(1-smoothstep(0,float(data.recovery),clock))
 	# Bend knees when the torso lowers; solve the planted foot back to actor ground.
 	root.position.y -= float(data.size)*0.045*minf(speed/2,1)
 	var hip_height := float(data.size)*(0.50 if "quadruped" in data.body else 0.64)*0.9

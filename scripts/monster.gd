@@ -10,6 +10,10 @@ var lunge_origin := Vector3.ZERO
 var wall_stun := 0.0
 var tail_rings: Array[Vector4] = []
 var previous_tail_rings: Array[Vector4] = []
+var head_rings: Array = []
+var previous_head := Transform3D.IDENTITY
+var previous_head_target := Vector3.ZERO
+var previous_head_epoch := -1
 var previous_tail := Transform3D.IDENTITY
 var previous_target_feet := Vector3.ZERO
 var previous_motion_epoch := -1
@@ -51,6 +55,8 @@ func _ready() -> void:
 	add_child(collider)
 	mesh = CreatureModel.create(self,data)
 	tail_rings = TailContact.profile(mesh.get_node("Tail/TailSurface").mesh)
+	for part in ["HeadSurface","Jaw"]: head_rings.append(TailContact.profile(mesh.get_node("Neck/"+part).mesh))
+	previous_head = mesh.get_node("Neck").global_transform
 	previous_tail = mesh.get_node("Tail").global_transform
 	previous_tail_rings = tail_rings.duplicate()
 	impact_material = Visuals.mat(Color.WHITE,true)
@@ -213,7 +219,7 @@ func _physics_process(delta: float) -> void:
 			spawn_hazard(global_position,float(data.reach),0.7,float(data.damage),"pulse")
 		if data.pattern in ["charge","leap"]:
 			velocity += lunge_direction*(13 if data.pattern == "charge" else 10)
-		if not attack_done:
+		if not attack_done and data.pattern!="sweep":
 			var forward := offset.normalized().dot(-global_basis.z)>-0.15
 			var in_range: bool = lunge_contains(target.global_position) if data.pattern in ["charge","leap"] else distance<float(data.reach) and forward
 			if in_range and clear_line_to(target.global_position):
@@ -251,6 +257,19 @@ func _physics_process(delta: float) -> void:
 	gait += delta*minf(Vector2(velocity.x,velocity.z).length(),float(data.speed)*1.2)*CreatureModel.GAIT_PER_METER
 	var grounded_pose: bool = is_on_floor() and not (phase=="active" and data.pattern=="leap")
 	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length(),foot_ground_height if grounded_pose else Callable(),foot_ground_normal if grounded_pose else Callable())
+	var head: Transform3D = mesh.get_node("Neck").global_transform
+	if data.pattern=="sweep" and phase=="active" and clock>=0.08 and clock<=0.45 and not attack_done:
+		var start: Vector3 = previous_head_target if target.motion_epoch==previous_head_epoch else target.global_position
+		for rings in head_rings:
+			var contact := TailContact.contact(rings,previous_head,head,target.global_position,start)
+			if not contact.is_empty() and clear_line_to(contact.feet):
+				attack_done = true
+				target.take_damage(float(data.damage),global_position,true)
+				break
+	previous_head = head
+	previous_head_target = target.global_position
+	previous_head_epoch = target.motion_epoch
+
 
 func foot_ground_height(point: Vector3) -> float:
 	var hit := foot_ground_sample(point)
@@ -303,7 +322,7 @@ func advance_rear_attack(delta: float) -> void:
 			clock = 0
 			rear_attack = false
 	move_and_slide()
-	CreatureModel.animate(mesh,data,gait,"recover",clock,0,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
+	CreatureModel.animate(mesh,data,gait,"idle",0,0,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
 	mesh.rotation.x = lerpf(mesh.rotation.x,0,delta*6)
 	mesh.get_node("Tail").rotation.y = tail_yaw
 	var current_tail: Transform3D = mesh.get_node("Tail").global_transform
