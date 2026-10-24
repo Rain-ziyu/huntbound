@@ -20,17 +20,36 @@ func run() -> void:
 		var model := Model.create(holder,data)
 		for slope in [Vector2(0.2,0),Vector2(0,0.2),Vector2(0,-0.2)]:
 			var ground := func(point: Vector3) -> float: return point.x*slope.x+point.z*slope.y
-			for frame in 60: Model.animate(model,data,0,"idle",0,0,ground)
+			var normal := Vector3(-slope.x,1,-slope.y).normalized()
+			var normal_probe := func(_point: Vector3) -> Vector3: return normal
+			for frame in 60: Model.animate(model,data,0,"idle",0,0,ground,normal_probe)
 			check(model.position.y>= -0.35,"downhill body offset remains bounded")
 			for name in ["Hind-1","Hind1","Front-1","Front1"]:
 				var leg := model.get_node_or_null(name) as Node3D
 				if leg==null: continue
 				var point := sole(leg)
 				check(absf(point.y-ground.call(point))<0.003,"stationary foot center fits slope: "+str(data.id)+name)
-			Model.animate(model,data,0,"idle",0,4,ground)
+				var skeleton: Skeleton3D = leg.get_node("LegSkeleton")
+				var up := (leg.global_basis*skeleton.get_bone_global_pose(2).basis.y).normalized()
+				check(up.dot(normal)>0.9999,"ankle aligns to slope without moving sole anchor")
+			Model.animate(model,data,0,"idle",0,4,ground,normal_probe)
 			for side in [-1,1]:
 				var point := sole(model.get_node("Hind"+str(side)))
 				check(point.y-ground.call(point)>= -0.003,"walking foot center stays above slope")
+				var leg: Node3D = model.get_node("Hind"+str(side))
+				var skeleton: Skeleton3D = leg.get_node("LegSkeleton")
+				var up := (leg.global_basis*skeleton.get_bone_global_pose(2).basis.y).normalized()
+				check(up.dot(Vector3.UP)>normal.dot(Vector3.UP)+0.0001 if side==1 else up.dot(normal)>0.9999,"swing foot releases tilt while stance foot follows slope")
+			for yaw in [0.7,2.0]:
+				model.rotation.y = yaw
+				Model.animate(model,data,0,"idle",0,0,ground,normal_probe)
+				var leg: Node3D = model.get_node("Hind1")
+				var skeleton: Skeleton3D = leg.get_node("LegSkeleton")
+				var up := (leg.global_basis*skeleton.get_bone_global_pose(2).basis.y).normalized()
+				check(up.dot(normal)>0.9999,"turned creature aligns ankle to world normal")
+				var point := sole(leg)
+				check(absf(point.y-ground.call(point))<0.003,"turned creature keeps sole center at ground height")
+			model.rotation.y = 0
 	var world = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(world)
 	world.hunter.set_physics_process(false)
@@ -60,6 +79,10 @@ func run() -> void:
 		var point := sole(monster.mesh.get_node("Hind"+str(side)))
 		var height: float = -0.1+0.1/cos(0.15)+(point.x-100)*tan(0.15)
 		check(absf(point.y-height)<0.003,"actual collision probe supports creature foot on ramp")
+		var leg: Node3D = monster.mesh.get_node("Hind"+str(side))
+		var skeleton: Skeleton3D = leg.get_node("LegSkeleton")
+		var up := (leg.global_basis*skeleton.get_bone_global_pose(2).basis.y).normalized()
+		check(up.dot(Vector3(-sin(0.15),cos(0.15),0))>0.9999,"runtime ankle follows real collision normal")
 	check(is_zero_approx(monster.foot_ground_height(Vector3(160,0,0))),"missing ground gives no invented support height")
 	print("CREATURE_GROUND_CHECKS: ",checks," FAILURES: ",failures)
 	holder.queue_free()

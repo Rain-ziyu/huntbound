@@ -50,7 +50,7 @@ static func bind(leg: Node3D, size: float) -> void:
 		rendered.material_override = source.material_override
 		skeleton.add_child(rendered)
 		source.hide()
-static func pose(leg: Node3D, target: Vector3) -> void:
+static func pose(leg: Node3D, target: Vector3, foot_basis: Basis = Basis.IDENTITY) -> void:
 	var skeleton: Skeleton3D = leg.get_node("LegSkeleton")
 	var first := skeleton.get_bone_rest(1).origin
 	var second := skeleton.get_bone_rest(2).origin
@@ -65,5 +65,5 @@ static func pose(leg: Node3D, target: Vector3) -> void:
 	var shin_rotation := Quaternion(second.normalized(),(direction*distance-knee).normalized())
 	skeleton.set_bone_pose_rotation(0,hip_rotation)
 	skeleton.set_bone_pose_rotation(1,hip_rotation.inverse()*shin_rotation)
-	skeleton.set_bone_pose_rotation(2,shin_rotation.inverse())
+	skeleton.set_bone_pose_rotation(2,shin_rotation.inverse()*foot_basis.get_rotation_quaternion())
 	skeleton.force_update_all_bone_transforms()

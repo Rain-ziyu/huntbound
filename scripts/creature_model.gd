@@ -67,7 +67,7 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 			if leg: LegSkin.bind(leg,s)
 	return root
 
-static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float, ground: Callable = Callable()) -> void:
+static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float, ground: Callable = Callable(), ground_normal: Callable = Callable()) -> void:
 	var tail := root.get_node("Tail") as Node3D
 	tail.rotation.y = sin(gait*0.5)*0.12
 	TailSkin.animate(tail,gait,phase,clock)
@@ -103,17 +103,26 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 				var step := gait+offset
 				var foot: MeshInstance3D = leg.get_node("Foot")
 				var target := Vector3(0,foot.position.y-minf(root.position.y,0),0)
+				var lift := 0.0
+				var foot_basis := Basis.IDENTITY
 				if speed>0.1:
 					target.z = sin(step)*side*minf(float(data.size)*0.16,speed*0.06)
-					target.y += maxf(0,cos(step)*side)*minf(float(data.size)*0.10,speed*0.035)
+					lift = maxf(0,cos(step)*side)*minf(float(data.size)*0.10,speed*0.035)
+					target.y += lift
 				if ground.is_valid():
-					var sample_point := leg.to_global(target+Vector3(0,-float(data.size)*0.05,-float(data.size)*0.10))
+					var sole_offset := Vector3(0,-float(data.size)*0.05,-float(data.size)*0.10)
+					var sample_point := leg.to_global(target+sole_offset)
 					var height: float = clampf(ground.call(sample_point),-0.35,0.35)
 					target.y += height
 					lowest = minf(lowest,height)
-				targets.append({"leg":leg,"target":target})
+					if ground_normal.is_valid():
+						var normal: Vector3 = leg.global_basis.inverse()*ground_normal.call(sample_point)
+						normal = Vector3.UP.lerp(normal.normalized(),1-smoothstep(0.01,float(data.size)*0.06,lift)).normalized()
+						foot_basis = Basis(Quaternion(Vector3.UP,normal))
+						target += sole_offset-foot_basis*sole_offset
+				targets.append({"leg":leg,"target":target,"foot_basis":foot_basis})
 	root.position.y += lowest
 	for entry in targets:
 		var target: Vector3 = entry.target
 		target.y -= lowest
-		LegSkin.pose(entry.leg,target)
+		LegSkin.pose(entry.leg,target,entry.foot_basis)

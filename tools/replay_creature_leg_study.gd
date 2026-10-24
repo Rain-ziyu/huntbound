@@ -66,7 +66,8 @@ func _process(_delta: float) -> bool:
 		if slope_mode:
 			var baseline: float = models[i].get_parent().position.y
 			var ground := func(point: Vector3) -> float: return point.x*0.2-baseline
-			Model.animate(models[i],species_data[i],0,"idle",0,0,ground)
+			var normal := func(_point: Vector3) -> Vector3: return Vector3(-0.2,1,0).normalized()
+			Model.animate(models[i],species_data[i],0,"idle",0,0,ground,normal)
 		else: Model.animate(models[i],species_data[i],time*5,"idle",0,4)
 	frame += 1
 	if slope_mode and frame==120: call_deferred("capture_slope")
