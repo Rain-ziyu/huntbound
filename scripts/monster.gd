@@ -4,6 +4,9 @@ const Hazard = preload("res://scripts/hazard.gd")
 const CreatureModel = preload("res://scripts/creature_model.gd")
 const Parts = preload("res://scripts/monster_parts.gd")
 const TailContact = preload("res://scripts/tail_contact.gd")
+const LungeWarning = preload("res://scripts/lunge_warning.gd")
+var lunge_tell: MeshInstance3D
+var lunge_origin := Vector3.ZERO
 var tail_rings: Array[Vector4] = []
 var previous_tail := Transform3D.IDENTITY
 var previous_target_feet := Vector3.ZERO
@@ -76,6 +79,8 @@ func _ready() -> void:
 	rear_tell.position.y = 0.08
 	rear_tell.visible = false
 	add_child(rear_tell)
+	lunge_tell = LungeWarning.new()
+	add_child(lunge_tell)
 	label = Label3D.new()
 	label.position.y = float(data.size)*1.5
 	label.font_size = 42
@@ -100,6 +105,7 @@ func _process(delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	rear_cooldown = maxf(0,rear_cooldown-delta)
 	rear_tell.visible = false
+	lunge_tell.visible = false
 	if health <= 0:
 		collision_layer = 0
 		collision_mask = 0
@@ -110,6 +116,8 @@ func _physics_process(delta: float) -> void:
 		return
 	label.text = "%s  %d/%d\n%s" % [data.name,ceili(health),int(data.health),data.weakness]
 	if rear_attack and phase=="windup": label.text += "\n摆尾蓄势 · 离开后方扇区"
+	if not rear_attack and phase=="windup" and data.pattern in ["charge","leap"]:
+		label.text += "\n方向已锁定 · 横向避开" if clock>=float(data.windup)*0.7 else "\n蓄势跟踪 · 留意直线通道"
 	weak_marker.visible = data.weak_side=="rear" or (data.weak_side=="front" and phase=="windup") or (data.weak_side=="flank" and exposed>0)
 	if data.id=="stormcrest": weak_marker.visible = phase=="windup" or stagger>0
 	stagger = maxf(0,stagger-delta)
@@ -161,6 +169,7 @@ func _physics_process(delta: float) -> void:
 				phase = "windup"
 				clock = 0
 				target_point = target.global_position
+				lunge_origin = global_position
 				attack_done = false
 				disrupted = 0
 	elif phase == "windup":
@@ -172,6 +181,14 @@ func _physics_process(delta: float) -> void:
 		if data.pattern=="mist":
 			tell.scale = Vector3(8,0.025,8)
 			tell.global_position = Vector3(target_point.x,preload("res://scripts/forest_terrain.gd").height_at(target_point.x,target_point.z)+0.08,target_point.z)
+		if data.pattern in ["charge","leap"]:
+			var heading := target_point-lunge_origin
+			heading.y = 0
+			heading = heading.normalized()
+			if heading.is_zero_approx(): heading = -global_basis.z
+			lunge_tell.configure(lunge_origin,heading,float(data.size)*0.34+0.32,(13.0 if data.pattern=="charge" else 10.0)*0.65+3.8)
+			lunge_tell.visible = true
+			tell.visible = false
 		mesh.rotation.x = sin(clock*12)*0.05
 		if clock >= float(data.windup):
 			if data.pattern in ["charge","leap"]:
@@ -182,6 +199,7 @@ func _physics_process(delta: float) -> void:
 			phase = "active"
 			clock = 0
 	elif phase == "active":
+		if data.pattern in ["charge","leap"]: lunge_tell.visible = true
 		if data.pattern=="mist" and not attack_done:
 			attack_done = true
 			if clear_line_to(target_point): spawn_hazard(target_point,4.0,6.0,9.0,"mist")
@@ -192,13 +210,15 @@ func _physics_process(delta: float) -> void:
 			velocity += lunge_direction*(13 if data.pattern == "charge" else 10)
 		if not attack_done:
 			var forward := offset.normalized().dot(-global_basis.z)>-0.15
-			if distance < float(data.reach) and forward and clear_line_to(target.global_position) and (data.pattern not in ["charge","leap"] or distance < 3.8):
+			var in_range: bool = lunge_contains(target.global_position) if data.pattern in ["charge","leap"] else distance<float(data.reach) and forward
+			if in_range and clear_line_to(target.global_position):
 				attack_done = true
 				target.take_damage(float(data.damage),global_position,data.pattern not in ["mist","pulse"])
 		if clock > 0.65:
 			phase = "recover"
 			clock = 0
 			tell.visible = false
+			lunge_tell.visible = false
 			exposed = float(data.recovery)
 	elif phase == "recover":
 		mesh.rotation.x = lerpf(mesh.rotation.x,0,delta*6)
@@ -208,6 +228,12 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	gait += delta*Vector2(velocity.x,velocity.z).length()*1.7
 	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length())
+
+func lunge_contains(point: Vector3) -> bool:
+	var offset := point-global_position
+	var side := Vector3(lunge_direction.z,0,-lunge_direction.x)
+	var along := offset.dot(lunge_direction)
+	return absf(offset.y)<2.5 and along>= -0.32 and along<3.8 and absf(offset.dot(side))<float(data.size)*0.34+0.32
 
 func rear_contains(point: Vector3) -> bool:
 	var local := to_local(point)

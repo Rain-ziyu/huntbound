@@ -41,6 +41,10 @@ func run() -> void:
 			if m.phase=="windup" and m.clock>float(m.data.windup)*0.78: break
 		check(m.phase=="windup","natural lunge windup: "+m.data.id)
 		var locked: Vector3 = m.target_point
+		check(m.lunge_tell.visible and not m.tell.visible,"lane warning replaces circular tell")
+		check(m.lunge_tell.contains(locked),"warning includes locked target")
+		check(not m.lunge_tell.contains(m.global_position+Vector3(m.lunge_tell.half_width+0.2,0,-2)),"lateral escape lies outside warning")
+		var origin: Vector3 = m.lunge_tell.start
 		p.global_position += Vector3(6,0,0)
 		for frame in 60:
 			await physics_frame
@@ -49,10 +53,12 @@ func run() -> void:
 		var last_z: float = m.global_position.z
 		var minimum := last_z
 		var monotonic := true
+		var warning_covers := true
 		for frame in 60:
 			await physics_frame
 			minimum = minf(minimum,m.global_position.z)
 			if m.global_position.z>last_z+0.005: monotonic = false
+			warning_covers = warning_covers and m.lunge_tell.contains(m.global_position+m.lunge_direction*3.7)
 			last_z = m.global_position.z
 			if m.phase=="recover": break
 		m.set_physics_process(false)
@@ -62,6 +68,10 @@ func run() -> void:
 		check(absf(m.global_position.x)<0.05,"lunge does not steer sideways after lock")
 		check(p.combat.health==240,"late sidestep avoids actual lunge hit")
 		check(m.phase=="recover" and m.exposed>0,"missed lunge exposes recovery weakness")
+		check(warning_covers and m.lunge_tell.start.distance_to(origin)<0.001,"fixed warning covers whole committed attack travel")
+		check(not m.lunge_tell.visible,"warning hides on recovery")
+		check(not m.lunge_contains(m.global_position+Vector3(m.lunge_tell.half_width+0.1,0,-2)),"lunge damage excludes lateral escape")
+		check(not m.lunge_contains(m.global_position+Vector3(0,3,-2)),"lunge damage excludes vertical separation")
 		m.global_position = Vector3(0,0,-16)
 		m.rotation = Vector3.ZERO
 		m.velocity = Vector3.ZERO
@@ -79,6 +89,27 @@ func run() -> void:
 		m.set_physics_process(false)
 		check(is_equal_approx(p.combat.health,240-float(m.data.damage)),"staying in path takes exactly one normal lunge hit")
 		check(m.phase=="recover","connected lunge also ends in recovery")
+		m.global_position = Vector3(0,0,-16)
+		m.rotation = Vector3.ZERO
+		m.velocity = Vector3.ZERO
+		m.phase = "idle"
+		m.clock = 0
+		p.global_position = Vector3(0,0,-18.8)
+		p.combat.health = 240
+		p.combat.set_action("idle")
+		await physics_frame
+		await physics_frame
+		m.set_physics_process(true)
+		for frame in 150:
+			await physics_frame
+			if m.phase=="windup" and m.clock>float(m.data.windup)*0.78: break
+		p.global_position.x = m.lunge_tell.half_width+0.15
+		check(not m.lunge_tell.contains(p.global_position),"small late sidestep leaves visible lane")
+		for frame in 100:
+			await physics_frame
+			if m.phase=="recover": break
+		m.set_physics_process(false)
+		check(p.combat.health==240,"just outside visible lane avoids actual attack damage")
 		m.global_position = Vector3(40,0,40)
 	print("COMMITTED_LUNGE_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
