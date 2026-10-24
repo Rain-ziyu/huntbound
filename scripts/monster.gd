@@ -20,6 +20,7 @@ var phase := "idle"
 var clock := 0.0
 var stagger := 0.0
 var target_point := Vector3.ZERO
+var lunge_direction := Vector3.FORWARD
 var mesh: Node3D
 var tell: MeshInstance3D
 var label: Label3D
@@ -173,6 +174,11 @@ func _physics_process(delta: float) -> void:
 			tell.global_position = Vector3(target_point.x,preload("res://scripts/forest_terrain.gd").height_at(target_point.x,target_point.z)+0.08,target_point.z)
 		mesh.rotation.x = sin(clock*12)*0.05
 		if clock >= float(data.windup):
+			if data.pattern in ["charge","leap"]:
+				lunge_direction = target_point-global_position
+				lunge_direction.y = 0
+				lunge_direction = lunge_direction.normalized()
+				if lunge_direction.is_zero_approx(): lunge_direction = -global_basis.z
 			phase = "active"
 			clock = 0
 	elif phase == "active":
@@ -183,9 +189,7 @@ func _physics_process(delta: float) -> void:
 			attack_done = true
 			spawn_hazard(global_position,float(data.reach),0.7,float(data.damage),"pulse")
 		if data.pattern in ["charge","leap"]:
-			var direction := (target_point-global_position).normalized()
-			direction.y = 0
-			velocity += direction*(13 if data.pattern == "charge" else 10)
+			velocity += lunge_direction*(13 if data.pattern == "charge" else 10)
 		if not attack_done:
 			var forward := offset.normalized().dot(-global_basis.z)>-0.15
 			if distance < float(data.reach) and forward and clear_line_to(target.global_position) and (data.pattern not in ["charge","leap"] or distance < 3.8):
