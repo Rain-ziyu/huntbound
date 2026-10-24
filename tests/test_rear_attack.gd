@@ -1,4 +1,5 @@
 extends SceneTree
+const Contact = preload("res://scripts/tail_contact.gd")
 var checks := 0
 var failures := 0
 var world: Node3D
@@ -32,6 +33,14 @@ func finish_hit(m: CharacterBody3D) -> void:
 	for frame in 30: await physics_frame
 	m.set_physics_process(false)
 func run() -> void:
+	var rings: Array[Vector4] = [Vector4(0,1,0.1,0),Vector4(2,1,0.1,0)]
+	var before := Transform3D(Basis.IDENTITY,Vector3(-2,0,0))
+	var after := Transform3D(Basis.IDENTITY,Vector3(2,0,0))
+	var feet := Vector3(0,0,1)
+	check(not Contact.touches(rings,before,before,feet),"tail starts clear of capsule")
+	check(not Contact.touches(rings,after,after,feet),"tail ends clear of capsule")
+	check(Contact.touches(rings,before,after,feet),"swept tail catches crossing between disjoint poses")
+	check(not Contact.touches(rings,before,after,feet+Vector3.UP*4),"sweep rejects vertically separated capsule")
 	world = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(world)
 	await physics_frame
@@ -66,6 +75,8 @@ func run() -> void:
 		var yaw: float = m.rotation.y
 		await until_active(m)
 		check(absf(m.rotation.y-yaw)<0.001,"rear windup holds orientation")
+		for frame in 4: await physics_frame
+		check(fighter.combat.health==240,"center target is safe before visible tail arrives")
 		await finish_hit(m)
 		check(is_equal_approx(fighter.combat.health,240-float(m.data.rear_attack.damage)),"rear attack deals one live hit")
 		check(m.rear_contains(m.global_position+Vector3(0,0,3)) and not m.rear_contains(m.global_position+Vector3(0,0,-3)),"rear cone excludes front")
@@ -114,6 +125,12 @@ func run() -> void:
 		for frame in 45: await physics_frame
 		m.set_physics_process(false)
 		check(m.phase=="recover" and m.exposed>0 and not m.rear_tell.visible,"tail recovery exposes pursuit window")
+		prepare(m)
+		fighter.global_position = m.global_position+Vector3(sin(1.15)*3.2,0,cos(1.15)*3.2)
+		await until_active(m)
+		check(m.rear_attack and m.rear_contains(fighter.global_position),"edge target remains inside broad warning sector")
+		await finish_hit(m)
+		check(fighter.combat.health==240,"warning sector alone does not deal damage without tail contact")
 	print("REAR_ATTACK_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame

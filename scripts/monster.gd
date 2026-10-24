@@ -3,6 +3,9 @@ const Visuals = preload("res://scripts/visuals.gd")
 const Hazard = preload("res://scripts/hazard.gd")
 const CreatureModel = preload("res://scripts/creature_model.gd")
 const Parts = preload("res://scripts/monster_parts.gd")
+const TailContact = preload("res://scripts/tail_contact.gd")
+var tail_rings: Array[Vector4] = []
+var previous_tail := Transform3D.IDENTITY
 var armor_integrity := 200.0
 var route := PackedVector3Array()
 var route_time := 0.0
@@ -39,6 +42,8 @@ func _ready() -> void:
 	collider.position.y = shape.height/2
 	add_child(collider)
 	mesh = CreatureModel.create(self,data)
+	tail_rings = TailContact.profile(mesh.get_node("Tail/TailSurface").mesh)
+	previous_tail = mesh.get_node("Tail").global_transform
 	impact_material = Visuals.mat(Color.WHITE,true)
 	impact_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	impact_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -216,10 +221,6 @@ func advance_rear_attack(delta: float) -> void:
 			clock = 0
 	elif phase=="active":
 		tail_yaw = lerpf(-0.9,0.9,smoothstep(0,0.50,clock))
-		if clock>=0.25 and not attack_done:
-			attack_done = true
-			if rear_contains(target.global_position) and clear_line_to(target.global_position):
-				target.take_damage(float(move.damage),global_position,true)
 		if clock>=0.65:
 			phase = "recover"
 			clock = 0
@@ -235,6 +236,12 @@ func advance_rear_attack(delta: float) -> void:
 	CreatureModel.animate(mesh,data,gait,"recover",clock,0)
 	mesh.rotation.x = lerpf(mesh.rotation.x,0,delta*6)
 	mesh.get_node("Tail").rotation.y = tail_yaw
+	var current_tail: Transform3D = mesh.get_node("Tail").global_transform
+	if phase=="active" and clock<=0.55 and not attack_done:
+		if rear_contains(target.global_position) and TailContact.touches(tail_rings,previous_tail,current_tail,target.global_position) and clear_line_to(target.global_position):
+			attack_done = true
+			target.take_damage(float(move.damage),global_position,true)
+	previous_tail = current_tail
 
 func spawn_hazard(point: Vector3, radius: float, duration: float, amount: float, kind: String) -> void:
 	var hazard := Hazard.new()
