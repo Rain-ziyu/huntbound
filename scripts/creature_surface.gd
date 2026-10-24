@@ -20,6 +20,9 @@ static func surface(parent: Node3D, label: String, rings: Array, color: Color, s
 				var shade := color.lightened(0.20).lerp(color.darkened(0.22),smoothstep(-0.8,0.9,height))
 				shade = shade.lightened(sin(vertex.z*19+vertex.x*7)*sin(vertex.y*13)*0.035)
 				st.set_color(shade)
+				var u := float(column+(1 if index in [1,3] else 0))/segments
+				var v: float = (vertex.z-rings[0].x)/maxf(rings[-1].x-rings[0].x,0.001)
+				st.set_uv(Vector2(u,v))
 				st.add_vertex(vertex)
 	if caps:
 		st.set_smooth_group(-1)
@@ -30,7 +33,9 @@ static func surface(parent: Node3D, label: String, rings: Array, color: Color, s
 			for column in segments:
 				var a := point(ring,lerpf(start,end,float(column)/segments))
 				var b := point(ring,lerpf(start,end,float(column+1)/segments))
-				for vertex in ([center,b,a] if row==0 else [center,a,b]): st.add_vertex(vertex)
+				for vertex in ([center,b,a] if row==0 else [center,a,b]):
+					st.set_uv(Vector2(float(column)/segments,0.0 if row==0 else 1.0))
+					st.add_vertex(vertex)
 	st.generate_normals()
 	var mesh := MeshInstance3D.new()
 	mesh.name = label

@@ -61,6 +61,7 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 		for i in 5:
 			var crest := Surface.profile(root,"Crest"+str(i),[Vector4(-0.12,0.008,0.01,0),Vector4(-0.05,0.035,0.24,0.22),Vector4(0.025,0.03,0.27,0.24),Vector4(0.13,0.008,0.01,0)],s,Color("78b9b5"))
 			crest.position = Vector3(0,y+s*0.22,(i-2)*s*0.19)
+	preload("res://scripts/creature_skin_material.gd").apply(root,data)
 	TailSkin.bind(tail)
 	for side in [-1,1]:
 		for label in ["Front","Hind"]:
