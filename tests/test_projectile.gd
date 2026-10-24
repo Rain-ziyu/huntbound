@@ -43,6 +43,12 @@ func run() -> void:
 	await physics_frame
 	p.finish_throw(Vector3(10,0,-10))
 	check(p.global_position.z>2.3,"capsule sweep prevents wall crossing")
+	world.obstacle(Vector3(0,2.7,-12),Vector3(4,0.4,4),Color.GRAY).collision_layer = 2
+	p.global_position = Vector3(0,0.05,-8)
+	p.combat.set_action("idle")
+	await physics_frame
+	p.finish_throw(Vector3(0,1.1,-12))
+	check(p.global_position.y<0.2 and p.global_position.z<-10,"arrival beneath low overhang does not teleport onto its roof")
 	p.combat.set_action("hurt")
 	var before: Vector3 = p.global_position
 	epoch = p.motion_epoch
@@ -53,3 +59,4 @@ func run() -> void:
 	world.queue_free()
 	await process_frame
 	quit(1 if failures else 0)
+

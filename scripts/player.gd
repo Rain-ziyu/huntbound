@@ -389,7 +389,9 @@ func finish_throw(point: Vector3, allow_arrival := true) -> void:
 	var collision := move_and_collide(motion,true)
 	if collision: motion = collision.get_travel()*0.90
 	var candidate := global_position+motion
-	var probe := PhysicsRayQueryParameters3D.create(candidate+Vector3(0,4,0),candidate-Vector3(0,6,0))
+	# Search below the projectile, so overhead terrain cannot become an arrival floor.
+	var probe_start := Vector3(candidate.x,point.y+0.1,candidate.z)
+	var probe := PhysicsRayQueryParameters3D.create(probe_start,Vector3(candidate.x,minf(candidate.y,point.y)-6,candidate.z))
 	probe.exclude = [get_rid()]
 	probe.collision_mask = 2
 	var floor_hit := get_world_3d().direct_space_state.intersect_ray(probe)
