@@ -32,6 +32,7 @@ var route := PackedVector3Array()
 var route_time := 0.0
 var gait := 0.0
 var weak_marker: MeshInstance3D
+var weak_markers: Array[MeshInstance3D] = []
 var data: Dictionary
 var target: CharacterBody3D
 var health := 0.0
@@ -80,6 +81,11 @@ func _ready() -> void:
 	elif data.weak_side=="flank": marker_pos = Vector3(s*0.37,s*0.58,0)
 	weak_marker = Visuals.piece(mesh,marker_pos,Vector3(0.22,0.22,0.22),Color("e6c57c"),true)
 	weak_marker.material_override = Visuals.mat(Color("e6c57c"),true)
+	weak_markers.append(weak_marker)
+	if data.weak_side=="flank":
+		var second := Visuals.piece(mesh,Vector3.ZERO,Vector3(0.22,0.22,0.22),Color("e6c57c"),true)
+		weak_markers.append(second)
+	update_weak_markers()
 	tell = Visuals.piece(self,Vector3(0,0.05,0),Vector3(float(data.reach)*2,0.025,float(data.reach)*2),Color("b48848"),true)
 	tell.visible = false
 	rear_tell = MeshInstance3D.new()
@@ -107,6 +113,24 @@ func _ready() -> void:
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(label)
 	add_to_group("monsters")
+
+func weak_part_active(part: String) -> bool:
+	if health<=0: return false
+	if data.id=="stormcrest": return part=="spine" and (phase=="windup" or stagger>0)
+	return (data.weak_side=="rear" and part=="tail") or (data.weak_side=="flank" and part=="flank" and exposed>0) or (data.weak_side=="front" and part=="head" and phase=="windup")
+
+func update_weak_markers() -> void:
+	for marker in weak_markers: marker.hide()
+	var index := 0
+	for part in Parts.volumes(self):
+		if not weak_part_active(part.id) or index>=weak_markers.size(): continue
+		var marker := weak_markers[index]
+		marker.show()
+		var outward: Vector3 = part.center-global_position
+		outward.y = 0
+		if outward.length_squared()<0.001: outward = Vector3.UP
+		marker.global_position = part.center+outward.normalized()*float(part.radius)*0.75
+		index += 1
 
 func combat_hint() -> String:
 	if health<=0: return "已击退"
@@ -144,6 +168,7 @@ func show_impact(weak: bool) -> void:
 
 func _process(delta: float) -> void:
 	update_nameplate()
+	update_weak_markers()
 	if impact_time<=0: return
 	impact_time = maxf(0,impact_time-delta)
 	impact_material.albedo_color.a = minf(impact_material.albedo_color.a,impact_time*2.7)
@@ -166,14 +191,13 @@ func _physics_process(delta: float) -> void:
 			velocity.z = move_toward(velocity.z,0,8*delta)
 			move_actor()
 			if is_on_floor(): collision_mask = 0
-		weak_marker.visible = false
+		for marker in weak_markers: marker.hide()
 		mesh.rotation.z = lerpf(mesh.rotation.z,1.35,delta*3)
 		tell.visible = false
 		label.text = str(data.name)+" 已击退"
 		return
 	update_nameplate()
-	weak_marker.visible = data.weak_side=="rear" or (data.weak_side=="front" and phase=="windup") or (data.weak_side=="flank" and exposed>0)
-	if data.id=="stormcrest": weak_marker.visible = phase=="windup" or stagger>0
+	update_weak_markers()
 	stagger = maxf(0,stagger-delta)
 	exposed = maxf(0,exposed-delta)
 	if not is_on_floor(): velocity.y -= (LEAP_GRAVITY if airborne_leap else 25.0)*delta
@@ -428,8 +452,7 @@ func receive_strike(amount: float, origin: Vector3, action: String, part := "") 
 	var dot_front := toward.dot(-global_basis.z)
 	var weak: bool = (data.weak_side == "rear" and dot_front < -0.3) or (data.weak_side == "flank" and absf(dot_front)<0.65 and exposed>0) or (data.weak_side == "front" and dot_front>0.2 and phase=="windup")
 	if part!="":
-		weak = (data.weak_side=="rear" and part=="tail") or (data.weak_side=="flank" and part=="flank" and exposed>0) or (data.weak_side=="front" and part=="head" and phase=="windup")
-		if data.id=="stormcrest": weak = part=="spine" and (phase=="windup" or stagger>0)
+		weak = weak_part_active(part)
 	var factor := float(data.weak_multiplier) if weak else (float(data.front_armor) if dot_front > 0.4 and armor_integrity>0 else 1.0)
 	if data.id=="mossback" and part=="body": armor_integrity = maxf(0,armor_integrity-amount)
 	if data.id=="mossback" and armor_integrity<=0:
