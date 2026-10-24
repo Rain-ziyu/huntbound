@@ -66,6 +66,16 @@ func run() -> void:
 		p.update_weapon_contacts()
 		if m.health<before: landed += 1
 	check(landed==4,"fourfold has four independent contact windows")
+	p.combat.set_action("pull")
+	p.combat.elapsed = 0.4
+	p.animate(0,0)
+	var hooks: PackedVector3Array = p.weapon_contact_points("pull",0)
+	check(hooks.size()==2 and hooks[0].distance_to(p.rig.weapon.get_node("LeftHookContact").global_position)<0.001,"pull traces model's backward hook markers")
+	hp = m.health
+	m.velocity = Vector3.ZERO
+	p.on_strike(0)
+	p.update_weapon_contacts()
+	check(m.health<hp and m.velocity.z>0,"actual hook contact pulls target toward player")
 	var storm = monsters[4]
 	storm.global_position = Vector3(0,0,-2)
 	m.global_position = Vector3(30,0,30)

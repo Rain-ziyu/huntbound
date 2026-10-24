@@ -1,0 +1,162 @@
+extends RefCounted
+## Original mesh profiles for the approved wet-forest costume. No third-party meshes.
+const V = preload("res://scripts/visuals.gd")
+
+static func loft(parent: Node3D, label: String, rings: Array, color: Color, start := 0.0, end := TAU, segments := 28, caps := true) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(0)
+	for row in range(rings.size()-1):
+		for column in segments:
+			var a := profile_point(rings[row],lerpf(start,end,float(column)/segments))
+			var b := profile_point(rings[row],lerpf(start,end,float(column+1)/segments))
+			var c := profile_point(rings[row+1],lerpf(start,end,float(column)/segments))
+			var d := profile_point(rings[row+1],lerpf(start,end,float(column+1)/segments))
+			for point in [a,c,b,b,c,d]: st.add_vertex(point)
+	if caps:
+		st.set_smooth_group(-1)
+		for row in [0,rings.size()-1]:
+			var ring: Vector4 = rings[row]
+			var center := Vector3(0,ring.x,ring.w)
+			for column in segments:
+				var a := profile_point(ring,lerpf(start,end,float(column)/segments))
+				var b := profile_point(ring,lerpf(start,end,float(column+1)/segments))
+				for point in ([center,a,b] if row==0 else [center,b,a]): st.add_vertex(point)
+	st.generate_normals()
+	var mesh := MeshInstance3D.new()
+	mesh.name = label
+	mesh.mesh = st.commit()
+	mesh.material_override = V.mat(color)
+	parent.add_child(mesh)
+	return mesh
+
+static func profile_point(ring: Vector4, angle: float) -> Vector3:
+	return Vector3(sin(angle)*ring.y,ring.x,cos(angle)*ring.z+ring.w)
+
+static func patch(parent: Node3D, label: String, points: Array, color: Color) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in range(1,points.size()-1):
+		for vertex in [points[0],points[index],points[index+1]]: st.add_vertex(vertex)
+	st.generate_normals()
+	var result := MeshInstance3D.new()
+	result.name = label
+	result.mesh = st.commit()
+	result.material_override = V.mat(color)
+	result.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
+	parent.add_child(result)
+	return result
+
+static func ribbon(parent: Node3D, label: String, points: Array, width: float, color: Color) -> MeshInstance3D:
+	var outline := []
+	var reverse := []
+	for index in points.size():
+		var before: Vector3 = points[maxi(0,index-1)]
+		var after: Vector3 = points[mini(points.size()-1,index+1)]
+		var tangent := (after-before).normalized()
+		var normal := Vector3(-tangent.y,tangent.x,0)*width*0.5
+		outline.append(points[index]+normal)
+		reverse.push_front(points[index]-normal)
+	outline.append_array(reverse)
+	return patch(parent,label,outline,color)
+
+static func blob(parent: Node3D, label: String, center: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
+	var result := V.piece(parent,center,size,color,true)
+	result.name = label
+	result.mesh.radial_segments = 24
+	result.mesh.rings = 12
+	return result
+
+static func create(root: Node3D) -> Dictionary:
+	var dark := Color("303735")
+	var green := Color("4c5e45")
+	var hem := Color("807a5e")
+	var red := Color("704439")
+	var skin := Color("bd9b80")
+	loft(root,"Undercoat",[
+		Vector4(0.96,0.16,0.105,0),Vector4(1.07,0.15,0.10,0),Vector4(1.18,0.17,0.115,0),
+		Vector4(1.31,0.205,0.13,-0.006),Vector4(1.40,0.22,0.12,0),Vector4(1.46,0.185,0.09,0),Vector4(1.49,0.08,0.065,0)
+	],dark)
+	loft(root,"Neck",[Vector4(1.46,0.055,0.052,0),Vector4(1.58,0.054,0.052,0)],skin)
+	loft(root,"Collar",[Vector4(1.43,0.10,0.076,0),Vector4(1.52,0.076,0.065,0)],Color("3b463a"))
+	ribbon(root,"CrossedCollar",[Vector3(-0.07,1.50,-0.067),Vector3(0.02,1.40,-0.13),Vector3(0.17,1.27,-0.094)],0.045,hem)
+	ribbon(root,"InnerCollar",[Vector3(0.07,1.49,-0.075),Vector3(-0.01,1.39,-0.139),Vector3(-0.15,1.30,-0.106)],0.026,Color("656b59"))
+	loft(root,"WaistSash",[Vector4(0.96,0.181,0.123,0),Vector4(1.015,0.177,0.12,0)],red)
+	loft(root,"Belt",[Vector4(0.982,0.188,0.131,0),Vector4(1.012,0.184,0.127,0)],Color("34322b"))
+	V.piece(root,Vector3(0.055,0.997,-0.133),Vector3(0.07,0.044,0.013),Color("928d74"))
+	V.piece(root,Vector3(0.055,0.997,-0.141),Vector3(0.046,0.025,0.008),dark)
+	for side in [-1,1]:
+		var begin := 0.22 if side==1 else -PI+0.22
+		var finish := PI-0.22 if side==1 else -0.22
+		var cape := loft(root,"RainCape"+str(side),[
+			Vector4(1.20,0.365,0.225,0.018),Vector4(1.31,0.335,0.205,0.012),
+			Vector4(1.44,0.245,0.147,0.008),Vector4(1.49,0.10,0.08,0)
+		],green,begin,finish,24,false)
+		cape.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
+		cape.material_override.roughness = 0.92
+		loft(root,"CapeHem"+str(side),[Vector4(1.201,0.366,0.226,0.018),Vector4(1.214,0.363,0.223,0.018)],hem,begin,finish,24,false).material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
+		patch(root,"ShoulderPlate"+str(side),[
+			Vector3(side*0.18,1.475,-0.07),Vector3(side*0.27,1.455,-0.08),Vector3(side*0.30,1.39,-0.06),
+			Vector3(side*0.25,1.37,0.065),Vector3(side*0.17,1.43,0.08)
+		],Color("737d70"))
+		V.piece(root,Vector3(side*0.25,1.425,-0.085),Vector3(0.028,0.055,0.018),red)
+	# Separate front panels allow the legs to swing and leave a central split.
+	var skirts := {}
+	for side in [-1,1]:
+		var pivot := V.pivot(root,"Skirt"+str(side),Vector3(side*0.12,0.98,-0.10))
+		patch(pivot,"CoatPanel",[Vector3(-0.105,0,-0.018),Vector3(0.105,0,-0.018),Vector3(0.12,-0.25,-0.075),Vector3(-0.08,-0.29,-0.068)],Color("77725a"))
+		ribbon(pivot,"PanelTrim",[Vector3(side*0.09,-0.01,-0.021),Vector3(side*0.09,-0.23,-0.077)],0.015,red)
+		skirts[side] = pivot
+		var pouch := loft(root,"BeltPouch"+str(side),[Vector4(0.865,0.055,0.035,0),Vector4(1.00,0.06,0.035,0)],Color("67644d"),0,TAU,12)
+		pouch.position = Vector3(side*0.215,0,0.04)
+		V.piece(root,Vector3(side*0.215,0.96,-0.003),Vector3(0.035,0.045,0.015),Color("8b8b73"))
+	V.piece(root,Vector3(0,1.30,0.15),Vector3(0.07,0.31,0.055),Color("586157"))
+	V.piece(root,Vector3(0,1.45,0.18),Vector3(0.09,0.065,0.025),red)
+	create_head(root,skin)
+	return {"skirts":skirts}
+
+static func create_head(root: Node3D, skin: Color) -> void:
+	loft(root,"Head",[
+		Vector4(1.535,0.055,0.055,-0.008),Vector4(1.57,0.085,0.073,-0.012),Vector4(1.62,0.108,0.097,-0.009),
+		Vector4(1.68,0.137,0.118,0),Vector4(1.73,0.137,0.118,0.004),Vector4(1.79,0.13,0.117,0.012),
+		Vector4(1.85,0.105,0.093,0.015),Vector4(1.88,0.04,0.04,0.015)
+	],skin,0,TAU,32)
+	for side in [-1,1]:
+		blob(root,"Ear"+str(side),Vector3(side*0.138,1.685,0.005),Vector3(0.045,0.078,0.035),skin.darkened(0.04))
+		blob(root,"EyeWhite"+str(side),Vector3(side*0.056,1.712,-0.109),Vector3(0.044,0.018,0.012),Color("c4c1ac"))
+		blob(root,"Iris"+str(side),Vector3(side*0.056,1.713,-0.117),Vector3(0.015,0.016,0.008),Color("332d24"))
+		blob(root,"EyeGlint"+str(side),Vector3(side*0.053,1.716,-0.122),Vector3(0.004,0.004,0.003),Color("ddd7bd"))
+		ribbon(root,"Brow"+str(side),[Vector3(side*0.025,1.744,-0.115),Vector3(side*0.056,1.75,-0.114),Vector3(side*0.086,1.74,-0.101)],0.009,Color("312d27"))
+	patch(root,"NoseLeft",[Vector3(-0.017,1.722,-0.12),Vector3(0,1.672,-0.143),Vector3(-0.019,1.658,-0.125)],skin.darkened(0.04))
+	patch(root,"NoseRight",[Vector3(0.017,1.722,-0.12),Vector3(0.019,1.658,-0.125),Vector3(0,1.672,-0.143)],skin.lightened(0.02))
+	ribbon(root,"UpperLip",[Vector3(-0.029,1.633,-0.111),Vector3(0,1.637,-0.12),Vector3(0.029,1.633,-0.111)],0.009,Color("845e50"))
+	ribbon(root,"LowerLip",[Vector3(-0.025,1.629,-0.112),Vector3(0,1.625,-0.12),Vector3(0.025,1.629,-0.112)],0.009,Color("a77c66"))
+	create_hair(root)
+
+static func create_hair(root: Node3D) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(0)
+	var rows := 8
+	var segments := 40
+	for row in rows:
+		for column in segments:
+			var vertices := []
+			for pair in [[row,column],[row+1,column],[row,column+1],[row+1,column+1]]:
+				var fraction: float = float(pair[0])/rows
+				var angle: float = float(pair[1])/segments*TAU
+				var hairline := 1.64+0.15*pow((1-cos(angle))*0.5,2)
+				var height := lerpf(hairline,1.915,fraction)
+				var radius := 0.145
+				if height>1.79: radius = lerpf(0.145,0.11,clampf((height-1.79)/0.07,0,1))
+				if height>1.86: radius = maxf(0.001,0.11*sqrt(maxf(0,1-pow((height-1.86)/0.055,2))))
+				vertices.append(Vector3(sin(angle)*radius,height,cos(angle)*radius*0.95+0.015))
+			for index in [0,1,2,2,1,3]: st.add_vertex(vertices[index])
+	st.generate_normals()
+	var hair := MeshInstance3D.new()
+	hair.name = "HairCap"
+	hair.mesh = st.commit()
+	hair.material_override = V.mat(Color("252b28"))
+	root.add_child(hair)
+	loft(root,"HairKnot",[Vector4(1.80,0.05,0.045,0.13),Vector4(1.86,0.085,0.07,0.15),Vector4(1.93,0.065,0.055,0.15),Vector4(1.96,0.02,0.02,0.14)],Color("282e2a"),0,TAU,24)
+	loft(root,"HairTie",[Vector4(1.82,0.058,0.051,0.13),Vector4(1.835,0.06,0.052,0.13)],Color("71473b"),0,TAU,24)

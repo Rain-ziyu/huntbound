@@ -1,6 +1,7 @@
 extends RefCounted
 const V = preload("res://scripts/visuals.gd")
 const Skinning = preload("res://scripts/hunter_skin.gd")
+const Outfit = preload("res://scripts/hunter_outfit.gd")
 
 static func tapered(parent: Node3D, pos: Vector3, top: float, bottom: float, height: float, color: Color) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
@@ -17,47 +18,36 @@ static func tapered(parent: Node3D, pos: Vector3, top: float, bottom: float, hei
 
 static func create(parent: Node3D) -> Dictionary:
 	var root := V.pivot(parent,"HunterRig",Vector3.ZERO)
-	var green := Color("4b5d42")
 	var dark := Color("303834")
 	var armor := Color("6a756b")
 	var skin := Color("b99a7c")
-	tapered(root,Vector3(0,1.22,0),0.21,0.16,0.48,dark)
-	tapered(root,Vector3(0,0.94,0),0.18,0.21,0.14,Color("765543"))
-	var head := V.piece(root,Vector3(0,1.68,0),Vector3(0.29,0.37,0.28),skin,true)
-	head.name = "Head"
-	V.piece(root,Vector3(0,1.82,0.025),Vector3(0.31,0.20,0.29),Color("262d29"),true)
-	V.piece(root,Vector3(0,1.85,0.16),Vector3(0.15,0.16,0.15),Color("262d29"),true)
-	for side in [-1,1]:
-		V.piece(root,Vector3(side*0.057,1.70,-0.127),Vector3(0.025,0.018,0.018),Color("26302b"),true)
-		# Short shoulder cloth panels leave a spine-width equipment channel.
-		var cape := tapered(root,Vector3(side*0.19,1.38,0.045),0.12,0.20,0.29,green)
-		cape.scale.z = 0.7
-		cape.rotation.z = side*0.24
-		V.piece(root,Vector3(side*0.23,1.49,0),Vector3(0.16,0.09,0.25),armor,true)
-		V.piece(root,Vector3(side*0.13,0.82,0.11),Vector3(0.16,0.27,0.07),Color("7d735e"))
-	V.piece(root,Vector3(0.21,1.03,0),Vector3(0.13,0.14,0.09),Color("776b51"))
-	V.piece(root,Vector3(0,1.30,0.15),Vector3(0.085,0.33,0.07),armor)
+	var costume := Outfit.create(root)
 	var joints := {}
 	var arms := {}
 	var legs := {}
 	for side in [-1,1]:
 		var shoulder := V.pivot(root,"Arm"+str(side),Vector3(side*0.27,1.43,0))
-		var upper := tapered(root,Vector3.ZERO,0.085,0.065,1,dark)
-		var lower := tapered(root,Vector3.ZERO,0.065,0.075,1,armor)
+		var upper := Outfit.loft(root,"Sleeve"+str(side),[Vector4(-0.5,0.078,0.075,0),Vector4(-0.1,0.083,0.075,0),Vector4(0.5,0.060,0.057,0)],dark)
+		var lower := Outfit.loft(root,"Bracer"+str(side),[Vector4(-0.5,0.063,0.058,0),Vector4(-0.15,0.073,0.062,0),Vector4(0.35,0.058,0.052,0),Vector4(0.5,0.048,0.045,0)],armor)
+		V.piece(lower,Vector3(0,-0.06,-0.063),Vector3(0.065,0.28,0.012),Color("434b43"))
+		if side==-1:
+			var display := V.piece(lower,Vector3(0,-0.06,-0.071),Vector3(0.039,0.18,0.009),Color("8fb8a0"))
+			display.material_override = V.mat(Color("8fb8a0"),true)
 		var hand := V.piece(root,Vector3.ZERO,Vector3(0.095,0.12,0.09),skin,true)
-		arms[side] = {"shoulder":shoulder,"upper":upper,"lower":lower,"hand":hand}
+		var elbow_pad := Outfit.blob(root,"Elbow"+str(side),Vector3.ZERO,Vector3.ONE*0.12,dark)
+		arms[side] = {"shoulder":shoulder,"upper":upper,"lower":lower,"hand":hand,"elbow":elbow_pad}
 		joints["arm"+str(side)] = shoulder
 		var leg := V.pivot(root,"Leg"+str(side),Vector3(side*0.14,0.89,0))
-		var thigh := tapered(leg,Vector3(0,-0.215,0),0.105,0.08,0.43,dark)
+		var thigh := Outfit.loft(leg,"TrouserThigh",[Vector4(-0.43,0.08,0.072,0),Vector4(-0.34,0.10,0.09,0),Vector4(-0.16,0.112,0.10,0),Vector4(0,0.10,0.095,0)],dark)
 		var knee := V.pivot(leg,"Knee",Vector3(0,-0.43,0))
-		V.piece(knee,Vector3(0,0,-0.035),Vector3(0.17,0.17,0.16),armor,true)
-		var shin := tapered(knee,Vector3(0,-0.18,0),0.08,0.065,0.36,dark)
-		V.piece(knee,Vector3(0,-0.17,-0.07),Vector3(0.14,0.26,0.08),armor)
+		Outfit.patch(knee,"KneePlate",[Vector3(-0.065,0.065,-0.09),Vector3(0.065,0.065,-0.09),Vector3(0.085,-0.03,-0.105),Vector3(0,-0.12,-0.115),Vector3(-0.085,-0.03,-0.105)],armor)
+		var shin := Outfit.loft(knee,"TrouserShin",[Vector4(-0.36,0.061,0.058,0),Vector4(-0.23,0.077,0.071,0),Vector4(-0.10,0.087,0.078,0),Vector4(0,0.078,0.072,0)],dark)
+		Outfit.patch(knee,"ShinPlate",[Vector3(-0.065,-0.10,-0.09),Vector3(0.065,-0.10,-0.09),Vector3(0.055,-0.27,-0.085),Vector3(0,-0.33,-0.10),Vector3(-0.055,-0.27,-0.085)],armor)
 		var ankle := V.pivot(knee,"Ankle",Vector3(0,-0.36,0))
 		var boot := V.piece(ankle,Vector3(0,-0.025,-0.06),Vector3(0.18,0.15,0.30),dark,true)
 		legs[side] = {"hip":leg,"knee":knee,"ankle":ankle,"thigh":thigh,"shin":shin,"boot":boot}
 		joints["leg"+str(side)] = leg
-	var rig := {"root":root,"joints":joints,"arms":arms,"legs":legs,"weapon":V.trident(root)}
+	var rig := {"root":root,"joints":joints,"arms":arms,"legs":legs,"skirts":costume.skirts,"weapon":V.trident(root)}
 	rig.weapon.name = "Trident"
 	pose_arms(rig,false,0)
 	rig.skinning = Skinning.bind(rig)
@@ -78,14 +68,14 @@ static func pose_arms(rig: Dictionary, armed: bool, gait: float) -> void:
 	for side in [-1,1]:
 		var arm: Dictionary = rig.arms[side]
 		var shoulder: Vector3 = arm.shoulder.position
-		var target := shoulder+Vector3(0,-0.66,sin(gait)*side*0.12)
+		var target := shoulder+Vector3(0,-0.72,-0.015+sin(gait)*side*0.12)
 		if armed:
 			# Anatomical left stays head-side, right stays butt-side through rotation.
 			target = rig.weapon.transform*Vector3(0,0.18 if side==-1 else -0.28,0)
 		var offset := target-shoulder
 		var distance := offset.length()
 		var middle := (shoulder+target)*0.5
-		var bend := Vector3(side*0.6,-0.7,0.3)
+		var bend := Vector3(side*0.6,-0.7,0.3) if armed else Vector3(side*0.12,-0.3,-1)
 		var unit := offset.normalized()
 		bend = (bend-unit*bend.dot(unit)).normalized()
 		var height := sqrt(maxf(0,0.39*0.39-pow(distance*0.5,2)))
@@ -93,6 +83,7 @@ static func pose_arms(rig: Dictionary, armed: bool, gait: float) -> void:
 		segment(arm.upper,shoulder,elbow)
 		segment(arm.lower,elbow,target)
 		arm.hand.position = target
+		arm.elbow.position = elbow
 	Skinning.update(rig)
 
 static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bool, gait: float, speed: float, delta: float) -> void:
@@ -120,6 +111,8 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 			target.y += lerpf(0.55,0.62,extension)*weight
 			target.z = lerpf(target.z,lerpf(-0.18,-0.72,extension),weight)
 		pose_leg(leg,target)
+		if rig.has("skirts"):
+			rig.skirts[side].rotation.x = clampf(leg.hip.rotation.x,0,1.3)*0.7
 
 static func pose_leg(leg: Dictionary, target: Vector3) -> void:
 	var offset: Vector3 = target-leg.hip.position

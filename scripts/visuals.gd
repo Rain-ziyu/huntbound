@@ -31,18 +31,7 @@ static func pivot(parent: Node3D, label: String, pos: Vector3) -> Node3D:
 	return p
 
 static func trident(parent: Node3D, spectral := false) -> Node3D:
-	var root := Node3D.new()
-	parent.add_child(root)
-	var c := Color("77ded1") if spectral else Color("343d3d")
-	piece(root, Vector3.ZERO, Vector3(0.045, 1.8, 0.045), c)
-	piece(root, Vector3(0,1.0,0), Vector3(0.045,0.40,0.045), c)
-	for side in [-1,1]:
-		piece(root,Vector3(side * 0.13,0.92,0),Vector3(0.035,0.28,0.035),c)
-		var branch := piece(root,Vector3(side * 0.075,0.80,0),Vector3(0.18,0.035,0.035),c)
-		branch.rotation.z = side * 0.3
-		piece(root,Vector3(side * 0.13,0.74,0),Vector3(0.035,0.13,0.035),c)
-	piece(root,Vector3(0,-0.93,0),Vector3(0.1,0.1,0.1),c,true)
-	return root
+	return preload("res://scripts/trident_mesh.gd").create(parent,spectral)
 
 static func hunter(parent: Node3D) -> Dictionary:
 	var root := pivot(parent,"HunterRig",Vector3.ZERO)
