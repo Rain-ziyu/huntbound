@@ -19,19 +19,21 @@ static func profile(mesh: Mesh) -> Array[Vector4]:
 static func touches(rings: Array[Vector4], before: Transform3D, after: Transform3D, feet: Vector3, previous_feet: Variant = null) -> bool:
 	return not contact(rings,before,after,feet,previous_feet).is_empty()
 
-static func contact(rings: Array[Vector4], before: Transform3D, after: Transform3D, feet: Vector3, previous_feet: Variant = null) -> Dictionary:
+static func contact(rings: Array[Vector4], before: Transform3D, after: Transform3D, feet: Vector3, previous_feet: Variant = null, previous_rings: Array[Vector4] = []) -> Dictionary:
 	var start: Vector3 = feet if previous_feet==null else previous_feet
 	var low := Vector3.UP*0.32
 	var high := Vector3.UP*1.48
 	for index in range(rings.size()-1):
 		var first := rings[index]
 		var last := rings[index+1]
-		var steps := maxi(1,ceili(absf(last.x-first.x)/0.08))
+		var steps := maxi(1,ceili(Vector3(last.w-first.w,last.y-first.y,last.x-first.x).length()/0.08))
 		for step in range(steps+1):
 			var ring := first.lerp(last,float(step)/steps)
-			var center := Vector3(0,ring.y,ring.x)
+			var center := Vector3(ring.w,ring.y,ring.x)
+			var old_ring := previous_rings[index].lerp(previous_rings[index+1],float(step)/steps) if previous_rings.size()==rings.size() else ring
+			var old_center := Vector3(old_ring.w,old_ring.y,old_ring.x)
 			# Relative motion keeps tail and hunter samples at the same time fraction.
-			var first_point := before*center-start
+			var first_point := before*old_center-start
 			var last_point := after*center-feet
 			var closest := Geometry3D.get_closest_points_between_segments(first_point,last_point,low,high)
 			# Half sample spacing closes gaps between adjacent spheres.

@@ -2,6 +2,7 @@ extends RefCounted
 const V = preload("res://scripts/visuals.gd")
 const H = preload("res://scripts/hunter_model.gd")
 const Surface = preload("res://scripts/creature_surface.gd")
+const TailSkin = preload("res://scripts/creature_tail_skin.gd")
 
 static func create(parent: Node3D, data: Dictionary) -> Node3D:
 	var root := V.pivot(parent,"CreatureMesh",Vector3.ZERO)
@@ -58,6 +59,7 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 		for i in 5:
 			var crest := Surface.profile(root,"Crest"+str(i),[Vector4(-0.12,0.008,0.01,0),Vector4(-0.05,0.035,0.24,0.22),Vector4(0.025,0.03,0.27,0.24),Vector4(0.13,0.008,0.01,0)],s,Color("78b9b5"))
 			crest.position = Vector3(0,y+s*0.22,(i-2)*s*0.19)
+	TailSkin.bind(tail)
 	return root
 
 static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float) -> void:
@@ -69,6 +71,7 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 				leg.rotation.x = sin(gait+offset)*side*minf(0.45,speed*0.08)
 	var tail := root.get_node("Tail") as Node3D
 	tail.rotation.y = sin(gait*0.5)*0.12
+	TailSkin.animate(tail,gait,phase,clock)
 	var neck := root.get_node("Neck") as Node3D
 	var frill := neck.get_node_or_null("Frill") as MeshInstance3D
 	if frill:

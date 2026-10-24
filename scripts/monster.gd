@@ -9,6 +9,7 @@ var lunge_tell: MeshInstance3D
 var lunge_origin := Vector3.ZERO
 var wall_stun := 0.0
 var tail_rings: Array[Vector4] = []
+var previous_tail_rings: Array[Vector4] = []
 var previous_tail := Transform3D.IDENTITY
 var previous_target_feet := Vector3.ZERO
 var previous_motion_epoch := -1
@@ -51,6 +52,7 @@ func _ready() -> void:
 	mesh = CreatureModel.create(self,data)
 	tail_rings = TailContact.profile(mesh.get_node("Tail/TailSurface").mesh)
 	previous_tail = mesh.get_node("Tail").global_transform
+	previous_tail_rings = tail_rings.duplicate()
 	impact_material = Visuals.mat(Color.WHITE,true)
 	impact_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	impact_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -288,13 +290,15 @@ func advance_rear_attack(delta: float) -> void:
 	mesh.rotation.x = lerpf(mesh.rotation.x,0,delta*6)
 	mesh.get_node("Tail").rotation.y = tail_yaw
 	var current_tail: Transform3D = mesh.get_node("Tail").global_transform
+	var current_rings := CreatureModel.TailSkin.contact_profile(mesh.get_node("Tail"),tail_rings)
 	if phase=="active" and clock<=0.55 and not attack_done:
 		var start: Vector3 = previous_target_feet if target.motion_epoch==previous_motion_epoch else target.global_position
-		var contact := TailContact.contact(tail_rings,previous_tail,current_tail,target.global_position,start)
+		var contact := TailContact.contact(current_rings,previous_tail,current_tail,target.global_position,start,previous_tail_rings)
 		if not contact.is_empty() and rear_contains(contact.feet) and clear_line_to(contact.feet):
 			attack_done = true
 			target.take_damage(float(move.damage),global_position,true)
 	previous_tail = current_tail
+	previous_tail_rings = current_rings
 	previous_target_feet = target.global_position
 	previous_motion_epoch = target.motion_epoch
 

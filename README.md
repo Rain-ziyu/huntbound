@@ -44,7 +44,7 @@
 & 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tools/capture_creature_models.gd
 ```
 
-保存的巨兽模型是静态节点资产，游戏内仍由同一套源代码生成并播放程序化动作；尚不是完成蒙皮与动作库的正式巨兽资产。
+保存的巨兽模型包含五节尾部骨骼、Skin 和混合权重网格；游戏内由同一套源代码生成并驱动尾部弯曲。躯干和四肢仍未完成完整骨骼步态，尚不是完成全身蒙皮与动作库的正式巨兽资产。tools/replay_tail_skin_study.gd 可生成尾部弯曲与整段摆动的视觉对照，不是实战回放。
 
 森林由 `scripts/forest_art.gd` 和 `shaders/forest_*.gdshader` 生成树冠、蕨类、湿地与溪流外观。以下图形模式命令生成地图总览、林下及溪边截图，并输出限定待机视图的渲染采样报告：
 
