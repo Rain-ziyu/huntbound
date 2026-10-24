@@ -3,47 +3,63 @@ const Visuals = preload("res://scripts/visuals.gd")
 const Hunter = preload("res://scripts/player.gd")
 const Monster = preload("res://scripts/monster.gd")
 const Terrain = preload("res://scripts/forest_terrain.gd")
+const ForestArt = preload("res://scripts/forest_art.gd")
 var hunter: CharacterBody3D
 var hud: Label
 var navigation = preload("res://scripts/forest_navigation.gd").new()
 
-func obstacle(pos: Vector3, size: Vector3, color: Color) -> void:
+func obstacle(pos: Vector3, size: Vector3, color: Color) -> StaticBody3D:
 	navigation.add_obstacle(pos,size)
 	var body := StaticBody3D.new()
 	add_child(body)
 	body.position = pos
-	Visuals.piece(body,Vector3.ZERO,size,color)
+	var visual := Visuals.piece(body,Vector3.ZERO,size,color)
+	visual.name = "ObstacleVisual"
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = size
 	collision.shape = shape
 	body.add_child(collision)
+	return body
 
 func _ready() -> void:
 	var env := WorldEnvironment.new()
 	var atmosphere := Environment.new()
-	atmosphere.background_mode = Environment.BG_COLOR
-	atmosphere.background_color = Color("819e97")
+	atmosphere.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color("698185")
+	sky_material.sky_horizon_color = Color("a1b1a6")
+	sky_material.ground_bottom_color = Color("354b3a")
+	sky_material.ground_horizon_color = Color("91a18f")
+	sky_material.sun_angle_max = 0.0
+	sky.sky_material = sky_material
+	atmosphere.sky = sky
 	atmosphere.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	atmosphere.ambient_light_color = Color("b4d1c5")
-	atmosphere.ambient_light_energy = 0.75
+	atmosphere.ambient_light_color = Color("c5cec4")
+	atmosphere.ambient_light_energy = 0.55
 	atmosphere.fog_enabled = true
 	atmosphere.fog_light_color = Color("7f9c92")
-	atmosphere.fog_density = 0.008
+	atmosphere.fog_density = 0.014
 	env.environment = atmosphere
 	add_child(env)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48,-25,0)
-	sun.light_energy = 1.3
+	sun.light_energy = 0.85
+	sun.light_color = Color("e5e6d5")
 	sun.shadow_enabled = true
 	add_child(sun)
 	add_child(Terrain.new())
 	for side in [-1,1]:
-		obstacle(Vector3(side*60,4,0),Vector3(1,8,120),Color("3f5348"))
-		obstacle(Vector3(0,4,side*60),Vector3(120,8,1),Color("3f5348"))
+		var wall_x := obstacle(Vector3(side*60,4,0),Vector3(1,8,120),Color("3f5348"))
+		wall_x.get_node("ObstacleVisual").hide()
+		var wall_z := obstacle(Vector3(0,4,side*60),Vector3(120,8,1),Color("3f5348"))
+		wall_z.get_node("ObstacleVisual").hide()
+	ForestArt.cliffs(self)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 37214
 	var positions := [Vector3(0,1,-16),Vector3(-26,1,-22),Vector3(26,1,-22),Vector3(-25,1,24),Vector3(25,1,24)]
+	var trunks: Array[Vector3] = []
 	for i in 110:
 		var pos := Vector3(rng.randf_range(-56,56),0,rng.randf_range(-56,56))
 		var clearing := absf(pos.x)<12
@@ -52,13 +68,35 @@ func _ready() -> void:
 		if clearing: continue
 		pos.y = Terrain.height_at(pos.x,pos.z)
 		var height := rng.randf_range(7,13)
-		obstacle(pos+Vector3(0,height/2,0),Vector3(0.65,height,0.65),Color("4b5040"))
-		Visuals.piece(self,pos+Vector3(0,height,0),Vector3(6,4,6),Color("365c43"),true)
-		Visuals.piece(self,pos+Vector3(1,height-2,0),Vector3(5,3,5),Color("3c6748"),true)
+		var trunk := obstacle(pos+Vector3(0,height/2,0),Vector3(0.65,height,0.65),Color("4b5040"))
+		trunk.get_node("ObstacleVisual").hide()
+		trunk.add_to_group("forest_tree_collisions")
+		ForestArt.tree(self,pos,height,i)
+		trunks.append(pos)
+	# Independent planting seed preserves the original rocks and collision locations.
+	var planting := RandomNumberGenerator.new()
+	planting.seed = 50894
+	for index in 220:
+		var pos := Vector3(planting.randf_range(-56,56),0,planting.randf_range(-56,56))
+		var safe := absf(pos.x)>8 and absf(pos.x-41)>2.5
+		for clearing in Terrain.CLEARINGS:
+			if Vector2(pos.x,pos.z).distance_to(clearing)<11: safe = false
+		for tree in trunks:
+			if Vector2(pos.x-tree.x,pos.z-tree.z).length()<6.2: safe = false
+		if not safe: continue
+		pos.y = Terrain.height_at(pos.x,pos.z)
+		var height := planting.randf_range(9,15)
+		var trunk := obstacle(pos+Vector3(0,height/2,0),Vector3(0.65,height,0.65),Color("4b5040"))
+		trunk.get_node("ObstacleVisual").hide()
+		trunk.add_to_group("forest_tree_collisions")
+		ForestArt.tree(self,pos,height,index+300)
+		trunks.append(pos)
+	var fern_locations: Array[Vector3] = []
 	for i in 65:
 		var pos := Vector3(rng.randf_range(-55,55),0,rng.randf_range(-55,55))
 		pos.y = Terrain.height_at(pos.x,pos.z)
-		if absf(pos.x)>7: Visuals.piece(self,pos+Vector3(0,0.25,0),Vector3(1.5,0.5,1.4),Color("4d7351"),true)
+		if absf(pos.x)>7: fern_locations.append(pos)
+	ForestArt.understory(self,fern_locations)
 	for i in 24:
 		var pos := Vector3(rng.randf_range(-55,55),0,rng.randf_range(-55,55))
 		var safe := absf(pos.x)>13
@@ -67,7 +105,10 @@ func _ready() -> void:
 		if not safe or absf(pos.x-41)<5: continue
 		pos.y = Terrain.height_at(pos.x,pos.z)
 		var radius := rng.randf_range(0.8,1.7)
-		obstacle(pos+Vector3(0,radius*0.45,0),Vector3(radius*1.8,radius,radius*1.5),Color("5a665e"))
+		var size := Vector3(radius*1.8,radius,radius*1.5)
+		var rock := obstacle(pos+Vector3(0,radius*0.45,0),size,Color("5a665e"))
+		rock.get_node("ObstacleVisual").hide()
+		ForestArt.rock(rock,size)
 	hunter = Hunter.new()
 	hunter.position = Vector3(0,1,8)
 	add_child(hunter)

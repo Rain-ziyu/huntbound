@@ -33,9 +33,9 @@ func _ready() -> void:
 	surface.generate_normals()
 	var ground := MeshInstance3D.new()
 	ground.mesh = surface.commit()
-	var material := StandardMaterial3D.new()
-	material.vertex_color_use_as_albedo = true
-	material.roughness = 0.72
+	ground.name = "WetGround"
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://shaders/forest_ground.gdshader")
 	ground.material_override = material
 	add_child(ground)
 	terrain_body = StaticBody3D.new()
@@ -46,8 +46,8 @@ func _ready() -> void:
 	terrain_body.add_child(collision)
 	add_child(terrain_body)
 	var water := Visuals.piece(self,Vector3(41,-0.12,0),Vector3(3.4,0.03,118),Color("4b8884"))
-	var water_mat := water.material_override as StandardMaterial3D
-	water_mat.roughness = 0.18
-	water_mat.metallic = 0.35
+	var water_mat := ShaderMaterial.new()
+	water_mat.shader = preload("res://shaders/forest_water.gdshader")
+	water.material_override = water_mat
 	water.name = "ShallowStream"
 	add_to_group("terrain")

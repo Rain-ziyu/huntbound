@@ -46,6 +46,14 @@
 
 保存的巨兽模型是静态节点资产，游戏内仍由同一套源代码生成并播放程序化动作；尚不是完成蒙皮与动作库的正式巨兽资产。
 
+森林由 `scripts/forest_art.gd` 和 `shaders/forest_*.gdshader` 生成树冠、蕨类、湿地与溪流外观。以下图形模式命令生成地图总览、林下及溪边截图，并输出限定待机视图的渲染采样报告：
+
+```powershell
+& 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tools/capture_forest_views.gd
+```
+
+结果位于项目父目录，文件名前缀 `Shubian-forest-`；该采样不代替战斗压力和人工手感验收。
+
 ## 版本管理
 
 主分支为 `main`。提交 Godot 场景、脚本、源素材和 `.uid` 文件，忽略 `.godot` 缓存。
