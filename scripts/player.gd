@@ -259,9 +259,14 @@ func animate(delta: float, speed: float) -> void:
 				# Catch with the backward-facing side teeth, then draw the head toward the hip.
 				w.position.z += lerpf(-0.12,0.20,smoothstep(0.22,0.58,t))
 				w.rotation.x += 0.12
-			"heavy","turn","spin","finisher":
-				w.rotation.y = -1.5+p*(TAU if combat.action in ["turn","spin","finisher"] else 3)
-				if combat.action in ["heavy","turn"]: w.rotation.x += clampf(pitch+0.25,-0.4,0.85)*1.22
+			"heavy":
+				var path := HunterModel.Motion.interpolate(HunterModel.Motion.HEAVY_WEAPON,t)
+				w.rotation.y = path.y
+				w.position.z += path.z
+				w.rotation.x += clampf(pitch+0.25,-0.4,0.85)*1.22
+			"turn","spin","finisher":
+				w.rotation.y = -1.5+p*TAU
+				if combat.action=="turn": w.rotation.x += clampf(pitch+0.25,-0.4,0.85)*1.22
 			"guard","reply":
 				w.rotation.y = PI if combat.action=="reply" else clampf(t/0.18,0,1)*PI
 				w.position.z += 0.55

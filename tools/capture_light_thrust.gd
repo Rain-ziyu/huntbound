@@ -39,13 +39,14 @@ func run() -> void:
 	var sheet := Image.create(2400,600,false,Image.FORMAT_RGB8)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	p.yaw = 0
-	p.combat.set_action("light")
+	var heavy := "--heavy" in OS.get_cmdline_user_args()
+	p.combat.set_action("heavy" if heavy else "light")
 	p.rig.root.rotation.y = 0
 	for i in 3:
-		var t: float = [0.11,0.25,0.34][i]
+		var t: float = ([0.18,0.43,0.60] if heavy else [0.11,0.25,0.34])[i]
 		p.combat.elapsed = t
 		p.animate(0,0)
-		label.text = ["01 / PREPARE / 0.11 s","02 / CONTACT / 0.25 s","03 / FOLLOW THROUGH / 0.34 s"][i]
+		label.text = ["01 / PREPARE","02 / CONTACT","03 / FOLLOW THROUGH"][i]+" / %.2f s" % t
 		await process_frame
 		await process_frame
 		await process_frame
@@ -54,7 +55,7 @@ func run() -> void:
 		frame.resize(800,600)
 		frame.convert(Image.FORMAT_RGB8)
 		sheet.blit_rect(frame,Rect2i(0,0,800,600),Vector2i(i*800,0))
-	sheet.save_png(ProjectSettings.globalize_path("res://../Shubian-light-thrust.png"))
+	sheet.save_png(ProjectSettings.globalize_path("res://../Shubian-heavy-sweep.png" if heavy else "res://../Shubian-light-thrust.png"))
 	stage.queue_free()
 	await process_frame
 	quit()

@@ -46,7 +46,7 @@ func run() -> void:
 	player.advance(0)
 	var before: Quaternion = model.get_node("Trident").quaternion
 	var spine_before := skeleton.get_bone_global_pose(skeleton.find_bone("Spine")).basis.get_rotation_quaternion()
-	player.advance(0.45)
+	player.advance(0.18)
 	var after: Quaternion = model.get_node("Trident").quaternion
 	check(before.angle_to(after)>0.1,"saved clip actually animates the weapon")
 	check(spine_before.angle_to(skeleton.get_bone_global_pose(skeleton.find_bone("Spine")).basis.get_rotation_quaternion())>0.05,"saved clip actually animates spine")
