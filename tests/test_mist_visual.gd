@@ -28,8 +28,15 @@ func run() -> void:
 	second.set_physics_process(false)
 	second.set_process(false)
 	check(first.mist_material!=second.mist_material,"independent clouds own independent fade state")
-	var ring := first.boundary.mesh as TorusMesh
-	check(is_equal_approx((ring.inner_radius+ring.outer_radius)*0.5,first.radius),"danger boundary is centered on actual damage radius")
+	first.conform_ground()
+	var vertices: PackedVector3Array = first.boundary.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var inner := 100.0
+	var outer := 0.0
+	for point in vertices:
+		var distance := Vector2(point.x,point.z).length()
+		inner = minf(inner,distance)
+		outer = maxf(outer,distance)
+	check(is_equal_approx((inner+outer)*0.5,first.radius),"danger boundary is centered on actual damage radius")
 	check(first.find_children("*","CollisionObject3D",true,false).is_empty(),"mist visuals do not add blocking collision")
 	var hp: float = p.combat.health
 	var timer := first.clock

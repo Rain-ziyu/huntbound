@@ -1,5 +1,6 @@
 extends Node3D
 const Visuals = preload("res://scripts/visuals.gd")
+const Terrain = preload("res://scripts/forest_terrain.gd")
 var target: CharacterBody3D
 var radius := 4.0
 var lifetime := 6.0
@@ -13,6 +14,7 @@ var mist_material: ShaderMaterial
 var boundary: MeshInstance3D
 var puffs: Array[MeshInstance3D] = []
 var visual_age := 0.0
+var puff_base_y: Array[float] = []
 
 func _ready() -> void:
 	add_to_group("hazards")
@@ -49,12 +51,63 @@ func _ready() -> void:
 			puff.material_override = mist_material
 			puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			puffs.append(puff)
+			puff_base_y.append(0.7)
+		conform_ground.call_deferred()
 
 func _process(delta: float) -> void:
 	if kind!="mist": return
 	visual_age += delta
 	mist_material.set_shader_parameter("density",clampf(lifetime/0.6,0,1))
-	for index in puffs.size(): puffs[index].position.y = 0.7+sin(visual_age*0.9+index*0.8)*0.09
+	for index in puffs.size(): puffs[index].position.y = puff_base_y[index]+sin(visual_age*0.9+index*0.8)*0.09
+
+func ground_point(x: float, z: float, lift: float) -> Vector3:
+	var world := to_global(Vector3(x,0,z))
+	return to_local(Vector3(world.x,Terrain.effect_height_at(world.x,world.z)+lift,world.z))
+
+func conform_ground() -> void:
+	if kind!="mist" or is_queued_for_deletion(): return
+	var band := SurfaceTool.new()
+	band.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in 64:
+		var a := TAU*index/64
+		var b := TAU*(index+1)/64
+		var inner_a := ground_point(cos(a)*(radius-0.04),sin(a)*(radius-0.04),0.08)
+		var outer_a := ground_point(cos(a)*(radius+0.04),sin(a)*(radius+0.04),0.08)
+		var inner_b := ground_point(cos(b)*(radius-0.04),sin(b)*(radius-0.04),0.08)
+		var outer_b := ground_point(cos(b)*(radius+0.04),sin(b)*(radius+0.04),0.08)
+		for point in [inner_a,outer_a,inner_b,outer_a,outer_b,inner_b]: band.add_vertex(point)
+	band.generate_normals()
+	boundary.mesh = band.commit()
+	boundary.position = Vector3.ZERO
+	boundary.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var fill := SurfaceTool.new()
+	fill.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings := maxi(1,ceili(radius/0.35))
+	var samples: Array[PackedVector3Array] = []
+	var center := ground_point(0,0,0.06)
+	for ring in range(rings+1):
+		var row := PackedVector3Array()
+		var distance := radius*float(ring)/rings
+		for index in 64:
+			var angle := TAU*index/64
+			row.append(center if ring==0 else ground_point(cos(angle)*distance,sin(angle)*distance,0.06))
+		samples.append(row)
+	for ring in rings:
+		for index in 64:
+			var next := (index+1)%64
+			var ia: Vector3 = samples[ring][index]
+			var oa: Vector3 = samples[ring+1][index]
+			var ib: Vector3 = samples[ring][next]
+			var ob: Vector3 = samples[ring+1][next]
+			for point in ([ia,oa,ob] if ring==0 else [ia,oa,ib,oa,ob,ib]): fill.add_vertex(point)
+	fill.generate_normals()
+	surface.mesh = fill.commit()
+	surface.position = Vector3.ZERO
+	surface.scale = Vector3.ONE
+	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for index in puffs.size():
+		var puff := puffs[index]
+		puff_base_y[index] = ground_point(puff.position.x,puff.position.z,0.7).y
 
 func _physics_process(delta: float) -> void:
 	lifetime -= delta

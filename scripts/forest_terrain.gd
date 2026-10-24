@@ -3,6 +3,10 @@ const Visuals = preload("res://scripts/visuals.gd")
 const CLEARINGS := [Vector2(0,-16),Vector2(-26,-22),Vector2(26,-22),Vector2(-25,24),Vector2(25,24)]
 const HALF := 60
 const STEP := 2
+const WATER_CENTER_Y := -0.12
+const WATER_THICKNESS := 0.03
+const WATER_HALF_WIDTH := 1.7
+const WATER_HALF_LENGTH := 59.0
 var terrain_body: StaticBody3D
 
 static func height_at(x: float, z: float) -> float:
@@ -13,6 +17,25 @@ static func height_at(x: float, z: float) -> float:
 	height *= blend
 	var river := 1.0-smoothstep(1.8,5.0,absf(x-41))
 	return lerpf(height,-0.45,river)
+
+static func mesh_height_at(x: float, z: float) -> float:
+	# Match the actual two collision triangles in each STEP-wide ground cell.
+	x = clampf(x,-HALF,HALF)
+	z = clampf(z,-HALF,HALF)
+	var cell_x := clampf(floor(x/STEP)*STEP,-HALF,HALF-STEP)
+	var cell_z := clampf(floor(z/STEP)*STEP,-HALF,HALF-STEP)
+	var u := (x-cell_x)/STEP
+	var v := (z-cell_z)/STEP
+	var b := height_at(cell_x+STEP,cell_z)
+	var c := height_at(cell_x,cell_z+STEP)
+	if u+v<=1: return height_at(cell_x,cell_z)*(1-u-v)+b*u+c*v
+	return b*(1-v)+height_at(cell_x+STEP,cell_z+STEP)*(u+v-1)+c*(1-u)
+
+static func effect_height_at(x: float, z: float) -> float:
+	var height := mesh_height_at(x,z)
+	if absf(x-41)<=WATER_HALF_WIDTH and absf(z)<=WATER_HALF_LENGTH:
+		height = maxf(height,WATER_CENTER_Y+WATER_THICKNESS*0.5)
+	return height
 
 func _ready() -> void:
 	var surface := SurfaceTool.new()
@@ -45,7 +68,7 @@ func _ready() -> void:
 	collision.shape = ground.mesh.create_trimesh_shape()
 	terrain_body.add_child(collision)
 	add_child(terrain_body)
-	var water := Visuals.piece(self,Vector3(41,-0.12,0),Vector3(3.4,0.03,118),Color("4b8884"))
+	var water := Visuals.piece(self,Vector3(41,WATER_CENTER_Y,0),Vector3(WATER_HALF_WIDTH*2,WATER_THICKNESS,WATER_HALF_LENGTH*2),Color("4b8884"))
 	var water_mat := ShaderMaterial.new()
 	water_mat.shader = preload("res://shaders/forest_water.gdshader")
 	water.material_override = water_mat
