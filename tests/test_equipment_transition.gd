@@ -67,6 +67,11 @@ func run() -> void:
 	p.animate(1.0/60,0)
 	check(p.rig.weapon.position.distance_to(before)<0.2,"redraw resumes from current weapon pose")
 	check(p.combat.health==240 and p.combat.shadow_lifetimes.is_empty(),"visual equipment transition does not change health or shadows")
+	p.combat.set_action("throw")
+	for sample in [[0.28,0.0],[0.33,0.5],[0.38,1.0]]:
+		p.combat.elapsed = sample[0]
+		p.animate(0,0)
+		check(absf(p.rig.arms[-1].hand.get_blend_shape_value(0)-sample[1])<0.001,"throw progressively opens fingers before projectile release")
 	print("EQUIPMENT_TRANSITION_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame

@@ -26,6 +26,12 @@ func run() -> void:
 		clip.track_set_path(rot_track,NodePath("Trident"))
 		var body_track := clip.add_track(Animation.TYPE_POSITION_3D)
 		clip.track_set_path(body_track,NodePath("."))
+		var finger_tracks := []
+		for binding in p.rig.skinning.bindings:
+			if binding.rendered.get_blend_shape_count()>0:
+				var track := clip.add_track(Animation.TYPE_BLEND_SHAPE)
+				clip.track_set_path(track,NodePath("Skeleton3D/"+str(binding.rendered.name)+":OpenHand"))
+				finger_tracks.append({"track":track,"rendered":binding.rendered})
 		p.combat.set_action(action)
 		p.combat.drawn = true
 		var frames := ceili(clip.length*30)
@@ -36,6 +42,7 @@ func run() -> void:
 			for bone in range(1,skeleton.get_bone_count()):
 				clip.position_track_insert_key((bone-1)*2,t,skeleton.get_bone_pose_position(bone))
 				clip.rotation_track_insert_key((bone-1)*2+1,t,skeleton.get_bone_pose_rotation(bone))
+			for finger in finger_tracks: clip.blend_shape_track_insert_key(finger.track,t,finger.rendered.get_blend_shape_value(0))
 			clip.position_track_insert_key(pos_track,t,p.rig.weapon.position)
 			clip.rotation_track_insert_key(rot_track,t,p.rig.weapon.quaternion)
 			clip.position_track_insert_key(body_track,t,p.rig.root.position)

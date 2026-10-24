@@ -89,7 +89,7 @@ static func pose_arms(rig: Dictionary, armed: bool, gait: float, grip_weight := 
 		segment(arm.upper,shoulder,elbow)
 		segment(arm.lower,elbow,target)
 		arm.hand.position = target
-		Hand.orient(arm.hand,elbow,rig.weapon.basis.y if armed else Vector3.DOWN)
+		Hand.orient(arm.hand,elbow,rig.weapon.basis.y,clampf(main_grip if side==1 and main_grip>=0 else grip_weight,0,1) if armed else 0.0)
 		arm.elbow.position = elbow
 	Skinning.update(rig)
 

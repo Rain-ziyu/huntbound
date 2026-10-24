@@ -280,7 +280,9 @@ func animate(delta: float, speed: float) -> void:
 	for i in ghosts.size(): ghosts[i].visible = i<combat.shadow_lifetimes.size()
 	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
 	HunterModel.pose_torso(rig,combat.action,combat.elapsed,walk_clock,speed,delta)
-	HunterModel.pose_arms(rig,(combat.drawn or equipment_grip>0 or equipment_main>0) and not is_instance_valid(projectile),walk_clock,equipment_grip,equipment_main)
+	var release := smoothstep(0.28,0.38,combat.elapsed) if combat.action=="throw" else 0.0
+	if is_instance_valid(projectile): release = 1.0
+	HunterModel.pose_arms(rig,combat.drawn or equipment_grip>0 or equipment_main>0,walk_clock,equipment_grip*(1-release),equipment_main*(1-release))
 
 func foot_ground_height(local_point: Vector3) -> float:
 	var hit := foot_ground_sample(local_point)

@@ -33,6 +33,22 @@ func run() -> void:
 			var label := "LeftHand" if side==-1 else "RightHand"
 			var bone: int = rig.skinning.skeleton.find_bone(label)
 			check(bone>=0 and rig.skinning.skeleton.get_bone_global_pose(bone).origin.distance_to(hand.position)<0.001,"rendered hand bone follows grip")
+	for grip in [0.0,0.5,1.0]:
+		H.pose_arms(rig,true,0,grip)
+		for side in [-1,1]:
+			var source: MeshInstance3D = rig.arms[side].hand
+			check(is_equal_approx(source.get_blend_shape_value(0),1-grip),"finger shape follows equipment grip")
+			for binding in rig.skinning.bindings:
+				if binding.source!=source: continue
+				check(binding.rendered.get_blend_shape_count()==1,"rendered skin retains open-hand shape")
+				check(is_equal_approx(binding.rendered.get_blend_shape_value(0),1-grip),"rendered fingers follow actual grip weight")
+				var closed: PackedVector3Array = source.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+				var opened: PackedVector3Array = source.mesh.surface_get_blend_shape_arrays(0)[0][Mesh.ARRAY_VERTEX]
+				var max_motion := 0.0
+				for i in closed.size(): max_motion = maxf(max_motion,closed[i].distance_to(opened[i]))
+				check(closed.size()==opened.size() and max_motion>0.001,"open fingers deform while preserving vertex correspondence")
+	H.pose_arms(rig,false,0)
+	check(rig.arms[-1].hand.get_blend_shape_value(0)==1,"unarmed hands relax open")
 	print("HUNTER_HAND_CHECKS: ",checks," FAILURES: ",failures)
 	holder.free()
 	quit(1 if failures else 0)

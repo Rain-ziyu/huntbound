@@ -55,7 +55,22 @@ static func bind(rig: Dictionary) -> Dictionary:
 		arrays[Mesh.ARRAY_BONES] = bones
 		arrays[Mesh.ARRAY_WEIGHTS] = weights
 		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+		var shapes: Array[Array] = []
+		if source.mesh is ArrayMesh and source.mesh.get_blend_shape_count()>0:
+			mesh.blend_shape_mode = Mesh.BLEND_SHAPE_MODE_NORMALIZED
+			var originals: Array[Array] = source.mesh.surface_get_blend_shape_arrays(0)
+			for index in originals.size():
+				mesh.add_blend_shape(source.mesh.get_blend_shape_name(index))
+				var shape: Array = originals[index].duplicate(true)
+				var positions: PackedVector3Array = shape[Mesh.ARRAY_VERTEX]
+				var directions: PackedVector3Array = shape[Mesh.ARRAY_NORMAL]
+				for vertex in positions.size():
+					positions[vertex] = global_rest*positions[vertex]
+					directions[vertex] = (normal_basis*directions[vertex]).normalized()
+				shape[Mesh.ARRAY_VERTEX] = positions
+				shape[Mesh.ARRAY_NORMAL] = directions
+				shapes.append(shape)
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays,shapes)
 		var rendered := MeshInstance3D.new()
 		rendered.name = "SkinPart_%02d" % i
 		rendered.set_meta("source_part",str(source.name))
@@ -114,3 +129,5 @@ static func update(rig: Dictionary) -> void:
 		var pose := relative_transform(binding.source,rig.root)
 		pose.basis = pose.basis.orthonormalized()
 		skeleton.set_bone_global_pose(binding.bone,pose)
+		for shape in binding.source.get_blend_shape_count():
+			binding.rendered.set_blend_shape_value(shape,binding.source.get_blend_shape_value(shape))

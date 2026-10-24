@@ -56,6 +56,15 @@ func run() -> void:
 	if foot_bone>=0:
 		var foot_pose := skeleton.get_bone_global_pose(foot_bone)
 		check(foot_pose.origin.z< -0.6 and foot_pose.origin.y>0.6,"saved finisher actually raises and extends kicking foot")
+	player.play("throw")
+	player.advance(0)
+	player.advance(0.33)
+	var finger_parts := 0
+	for part in skeleton.get_children():
+		if not part is MeshInstance3D or part.get_blend_shape_count()==0: continue
+		finger_parts += 1
+		check(absf(part.get_blend_shape_value(0)-0.5)<0.06,"saved throw clip progressively opens rendered fingers")
+	check(finger_parts==2,"saved model retains both hand blend shapes")
 	print("SKIN_CHECKS: ",checks," FAILURES: ",failures)
 	model.queue_free()
 	await process_frame
