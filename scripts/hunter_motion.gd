@@ -1,12 +1,14 @@
 extends RefCounted
 ## Waist-driven anticipation, contact and recovery. These curves never change combat time.
 ## Key = (seconds, forward/back lean, torso yaw, upper-body fore/aft offset).
-# Seconds, yaw offset, fore/aft offset, unused.
+# Seconds, height offset, fore/aft offset, yaw offset.
 const THROW_WEAPON := [Vector4(0,0,0,0),Vector4(0.20,0.25,0.20,-0.25),Vector4(0.38,0.02,-0.15,0),Vector4(0.60,0,-0.06,0),Vector4(0.80,0,0,0)]
+# Seconds, yaw offset, fore/aft offset, unused.
 const HEAVY_WEAPON := [Vector4(0,0,0,0),Vector4(0.18,-0.90,0.025,0),Vector4(0.43,-0.097826,0,0),Vector4(0.60,0.95,0,0),Vector4(0.92,0,0,0)]
 # Seconds, height offset, fore/aft offset, pitch offset.
 const PULL_WEAPON := [Vector4(0,0,0,0),Vector4(0.22,0,-0.12,0.12),Vector4(0.40,0,0.04,0.12),Vector4(0.58,0,0.20,0.12),Vector4(0.86,0,0,0)]
 const LIGHT_WEAPON := [Vector4(0,0,0,0),Vector4(0.11,-0.08,0.09,-0.12),Vector4(0.25,0,-0.15,0.18),Vector4(0.34,0.02,-0.10,0.27),Vector4(0.48,0.01,-0.03,0.12),Vector4(0.66,0,0,0)]
+const FOURFOLD_WEAPON := [Vector4(0,0,0,0),Vector4(0.08,0,0.04,0.06),Vector4(0.18,0,-0.15,0.18),Vector4(0.28,0,0.035,0.06),Vector4(0.33,0,0.04,0.06),Vector4(0.43,0,-0.15,0.18),Vector4(0.53,0,0.035,0.06),Vector4(0.58,0,0.04,0.06),Vector4(0.68,0,-0.15,0.18),Vector4(0.78,0,0.035,0.06),Vector4(0.83,0,0.04,0.06),Vector4(0.93,0,-0.15,0.18),Vector4(1.03,0,0.035,0.06),Vector4(1.25,0,0,0)]
 const KEYS := {
 	"light":[Vector4(0,0,0,0),Vector4(0.11,0.035,-0.10,0.012),Vector4(0.25,-0.10,0.10,-0.035),Vector4(0.40,-0.04,0.04,-0.01),Vector4(0.66,0,0,0)],
 	"heavy":[Vector4(0,0,0,0),Vector4(0.18,0.04,-0.30,0.02),Vector4(0.43,-0.08,0.08,-0.025),Vector4(0.61,-0.04,0.28,-0.015),Vector4(0.92,0,0,0)],
