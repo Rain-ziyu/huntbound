@@ -17,7 +17,7 @@ var heavy_held := -1.0
 var lock_target: Node3D
 var message := "观察金色预警后躲避或格挡。"
 var ghosts: Array[Node3D] = []
-var projectile: Node3D
+var projectile: Projectile
 var pose_action := ""
 var pose_from := Transform3D.IDENTITY
 var pose_blend := 1.0
@@ -111,6 +111,7 @@ func apply_look(relative: Vector2) -> void:
 
 func on_action_changed(next: String) -> void:
 	strike_windows.clear()
+	if next=="hurt" and is_instance_valid(projectile): projectile.cancel_arrival()
 	if not is_instance_valid(lock_target) and next not in ["idle","hurt","dodge","wait","counter_window"]:
 		rig.root.rotation.y = yaw
 
@@ -322,9 +323,9 @@ func update_weapon_contacts() -> void:
 				message = ("弱点！ " if result.weak else "命中 ")+str(roundi(result.damage))+" · "+str(result.part)
 		window.previous = points
 
-func finish_throw(point: Vector3) -> void:
+func finish_throw(point: Vector3, allow_arrival := true) -> void:
 	projectile = null
-	if combat.health<=0 or combat.action=="hurt":
+	if not allow_arrival or combat.health<=0 or combat.action=="hurt":
 		message = "投掷被打断，武器收回"
 		return
 	var motion := Vector3(point.x-global_position.x,0,point.z-global_position.z)
