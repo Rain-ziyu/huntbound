@@ -115,6 +115,7 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 	body.position.y = -drop
 	var targets := {}
 	var normals := {}
+	var planting := {}
 	var lowest := 0.0
 	for side in [-1,1]:
 		var leg: Dictionary = rig.legs[side]
@@ -140,10 +141,19 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 			var weight := chamber*(1-smoothstep(1.02,1.32,elapsed))
 			target.y += lerpf(0.55,0.62,extension)*weight
 			target.z = lerpf(target.z,lerpf(-0.18,-0.72,extension),weight)
+		var planted: bool = action=="turn" and elapsed>=0.10 and elapsed<0.58 and lift<0.001 and ground.is_valid()
+		var anchored := false
+		if leg.hip.has_meta("turn_plant_world"):
+			var anchor: Vector3 = body.to_local(leg.hip.get_meta("turn_plant_world"))
+			if planted and Vector2(anchor.x-leg.hip.position.x,anchor.z).length()<0.32 and (anchor-leg.hip.position).length()<0.78:
+				target = anchor
+				anchored = true
+			else: leg.hip.remove_meta("turn_plant_world")
+		planting[side] = planted
 		# Keep the attacking foot on its authored arc; sample support/swing feet only.
 		if ground.is_valid() and not (action=="finisher" and side==1 and elapsed>=0.60 and elapsed<1.32):
 			var height: float = clampf(ground.call(Vector3(target.x,0,target.z)),-0.22,0.22)
-			target.y += height
+			if not anchored: target.y += height
 			lowest = minf(lowest,height)
 			if ground_normal.is_valid():
 				var normal: Vector3 = ground_normal.call(Vector3(target.x,0,target.z))
@@ -157,6 +167,8 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 		target.y += -drop-body.position.y
 		pose_leg(leg,target)
 		pose_sole(leg,normals[side])
+		if planting[side] and not leg.hip.has_meta("turn_plant_world"):
+			leg.hip.set_meta("turn_plant_world",leg.ankle.global_position)
 		if rig.has("skirts"):
 			rig.skirts[side].rotation.x = clampf(leg.hip.rotation.x,0,1.3)*0.7
 
@@ -169,9 +181,11 @@ static func pose_sole(leg: Dictionary, normal: Vector3) -> void:
 
 static func pose_leg(leg: Dictionary, target: Vector3) -> void:
 	var offset: Vector3 = target-leg.hip.position
-	var distance := clampf(Vector2(offset.y,offset.z).length(),0.075,0.7899)
-	var angle := atan2(-offset.z,-offset.y)
+	var distance := clampf(offset.length(),0.075,0.7899)
+	# Roll the leg's bend plane sideways, preserving its anatomical forward pole.
+	var roll := atan2(offset.x,-offset.y)
+	var angle := atan2(-offset.z,Vector2(offset.x,offset.y).length())
 	var hip_bend := acos(clampf((0.43*0.43+distance*distance-0.36*0.36)/(2*0.43*distance),-1,1))
-	leg.hip.rotation.x = angle+hip_bend
-	leg.knee.rotation.x = -acos(clampf((distance*distance-0.43*0.43-0.36*0.36)/(2*0.43*0.36),-1,1))
-	leg.ankle.rotation.x = -leg.hip.rotation.x-leg.knee.rotation.x
+	leg.hip.basis = Basis(Vector3.BACK,roll)*Basis(Vector3.RIGHT,angle+hip_bend)
+	leg.knee.rotation = Vector3(-acos(clampf((distance*distance-0.43*0.43-0.36*0.36)/(2*0.43*0.36),-1,1)),0,0)
+	leg.ankle.basis = (leg.hip.basis*leg.knee.basis).inverse()

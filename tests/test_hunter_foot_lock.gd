@@ -1,0 +1,56 @@
+extends SceneTree
+const H = preload("res://scripts/hunter_model.gd")
+var checks := 0
+var failures := 0
+func check(ok: bool, label: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		printerr("FAIL: ",label)
+func _initialize() -> void: call_deferred("run")
+func run() -> void:
+	var actor := Node3D.new()
+	root.add_child(actor)
+	var rig := H.create(actor)
+	for x in [-0.12,0.12]:
+		for z in [-0.16,0.16]:
+			var leg: Dictionary = rig.legs[-1]
+			var target := Vector3(leg.hip.position.x+x,0.19,z)
+			H.pose_leg(leg,target)
+			check(rig.root.to_local(leg.ankle.global_position).distance_to(target)<0.002,"leg reaches lateral ankle target")
+			check(absf(leg.hip.global_position.distance_to(leg.knee.global_position)-0.43)<0.002 and absf(leg.knee.global_position.distance_to(leg.ankle.global_position)-0.36)<0.002,"lateral solve preserves both bone lengths")
+	var held := 0
+	var worst := 0.0
+	var previous := {}
+	for frame in 49:
+		var t := 0.10+frame*0.01
+		rig.root.rotation.y = TAU*smoothstep(0.10,0.58,t)
+		H.pose_legs(rig,"turn",t,true,0,0,0.01,func(_point: Vector3): return 0.0)
+		for side in [-1,1]:
+			var leg: Dictionary = rig.legs[side]
+			if not leg.hip.has_meta("turn_plant_world"):
+				previous.erase(side)
+				continue
+			var anchor: Vector3 = leg.hip.get_meta("turn_plant_world")
+			if previous.has(side) and anchor.distance_to(previous[side])<0.001:
+				held += 1
+				worst = maxf(worst,leg.ankle.global_position.distance_to(anchor))
+			previous[side] = anchor
+	check(held>=12,"turn retains stance anchors over multiple frames")
+	check(worst<0.003,"held stance ankle remains fixed in world space")
+	rig.root.rotation.y = TAU*smoothstep(0.10,0.58,0.30)
+	H.pose_legs(rig,"turn",0.30,true,0,0,0,func(_point: Vector3): return 0.0)
+	var old_anchor: Vector3 = rig.legs[-1].hip.get_meta("turn_plant_world")
+	actor.position.x += 1
+	H.pose_legs(rig,"turn",0.30,true,0,0,0,func(_point: Vector3): return 0.0)
+	var fresh_anchor: Vector3 = rig.legs[-1].hip.get_meta("turn_plant_world")
+	check(fresh_anchor.distance_to(old_anchor)>0.9,"large actor relocation resets unreachable old plant")
+	check(rig.legs[-1].ankle.global_position.distance_to(fresh_anchor)<0.003,"reset plant remains reachable")
+	H.pose_legs(rig,"turn",0.30,true,0,0,0)
+	check(not rig.legs[-1].hip.has_meta("turn_plant_world") and not rig.legs[1].hip.has_meta("turn_plant_world"),"airborne pose releases world anchors")
+	H.pose_legs(rig,"idle",0,true,0,0,0,func(_point: Vector3): return 0.0)
+	check(not rig.legs[-1].hip.has_meta("turn_plant_world") and not rig.legs[1].hip.has_meta("turn_plant_world"),"leaving turn releases old stance anchors")
+	print("HUNTER_FOOT_LOCK_CHECKS: ",checks," FAILURES: ",failures," HELD_FRAMES: ",held," WORST_DRIFT: ",worst)
+	actor.queue_free()
+	await process_frame
+	quit(1 if failures else 0)

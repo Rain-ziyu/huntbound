@@ -15,6 +15,9 @@ func run() -> void:
 	p.lock_target = null
 	p.yaw = 0
 	p.rig.root.rotation.y = 0
+	p.velocity = Vector3.DOWN
+	p.move_and_slide()
+	p.velocity = Vector3.ZERO
 	await physics_frame
 	await physics_frame
 	var library := AnimationLibrary.new()
