@@ -1,6 +1,7 @@
 extends RefCounted
 const V = preload("res://scripts/visuals.gd")
 const Skinning = preload("res://scripts/hunter_skin.gd")
+const Hand = preload("res://scripts/hunter_hand.gd")
 const Outfit = preload("res://scripts/hunter_outfit.gd")
 const Motion = preload("res://scripts/hunter_motion.gd")
 
@@ -21,7 +22,6 @@ static func create(parent: Node3D) -> Dictionary:
 	var root := V.pivot(parent,"HunterRig",Vector3.ZERO)
 	var dark := Color("303834")
 	var armor := Color("6a756b")
-	var skin := Color("b99a7c")
 	var costume := Outfit.create(root)
 	var torso := V.pivot(root,"Torso",Vector3(0,1.08,0))
 	for part in costume.upper_parts:
@@ -38,7 +38,7 @@ static func create(parent: Node3D) -> Dictionary:
 		if side==-1:
 			var display := V.piece(lower,Vector3(0,-0.06,-0.071),Vector3(0.039,0.18,0.009),Color("8fb8a0"))
 			display.material_override = V.mat(Color("8fb8a0"),true)
-		var hand := V.piece(root,Vector3.ZERO,Vector3(0.095,0.12,0.09),skin,true)
+		var hand := Hand.create(root,side)
 		var elbow_pad := Outfit.blob(root,"Elbow"+str(side),Vector3.ZERO,Vector3.ONE*0.12,dark)
 		arms[side] = {"shoulder":shoulder,"rest_shoulder":shoulder.position,"upper":upper,"lower":lower,"hand":hand,"elbow":elbow_pad}
 		joints["arm"+str(side)] = shoulder
@@ -89,6 +89,7 @@ static func pose_arms(rig: Dictionary, armed: bool, gait: float, grip_weight := 
 		segment(arm.upper,shoulder,elbow)
 		segment(arm.lower,elbow,target)
 		arm.hand.position = target
+		Hand.orient(arm.hand,elbow,rig.weapon.basis.y if armed else Vector3.DOWN)
 		arm.elbow.position = elbow
 	Skinning.update(rig)
 
