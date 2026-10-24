@@ -9,6 +9,10 @@ var clock := 0.0
 var kind := "mist"
 var surface: MeshInstance3D
 var source_actor: CollisionObject3D
+var mist_material: ShaderMaterial
+var boundary: MeshInstance3D
+var puffs: Array[MeshInstance3D] = []
+var visual_age := 0.0
 
 func _ready() -> void:
 	add_to_group("hazards")
@@ -17,10 +21,40 @@ func _ready() -> void:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.albedo_color.a = 0.45
 	if kind=="mist":
+		material.albedo_color.a = 0.12
+		var disc := CylinderMesh.new()
+		disc.top_radius = radius
+		disc.bottom_radius = radius
+		disc.height = 0.02
+		disc.radial_segments = 64
+		surface.mesh = disc
+		surface.scale = Vector3.ONE
+		mist_material = ShaderMaterial.new()
+		mist_material.shader = preload("res://shaders/hazard_mist.gdshader")
+		mist_material.set_shader_parameter("density",1.0)
+		boundary = MeshInstance3D.new()
+		boundary.name = "DangerBoundary"
+		var ring := TorusMesh.new()
+		ring.inner_radius = maxf(0.01,radius-0.04)
+		ring.outer_radius = radius+0.04
+		ring.rings = 64
+		ring.ring_segments = 8
+		boundary.mesh = ring
+		boundary.material_override = Visuals.mat(Color("aec878"),true)
+		boundary.position.y = 0.1
+		add_child(boundary)
 		for i in 7:
 			var angle := i*TAU/7
 			var puff := Visuals.piece(self,Vector3(cos(angle)*radius*0.5,0.7,sin(angle)*radius*0.5),Vector3(radius*0.7,1.1,radius*0.7),Color("7ea866"),true)
-			puff.material_override = material
+			puff.material_override = mist_material
+			puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			puffs.append(puff)
+
+func _process(delta: float) -> void:
+	if kind!="mist": return
+	visual_age += delta
+	mist_material.set_shader_parameter("density",clampf(lifetime/0.6,0,1))
+	for index in puffs.size(): puffs[index].position.y = 0.7+sin(visual_age*0.9+index*0.8)*0.09
 
 func _physics_process(delta: float) -> void:
 	lifetime -= delta
