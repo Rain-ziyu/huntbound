@@ -7,6 +7,7 @@ const TailContact = preload("res://scripts/tail_contact.gd")
 const LungeWarning = preload("res://scripts/lunge_warning.gd")
 var lunge_tell: MeshInstance3D
 var lunge_origin := Vector3.ZERO
+var wall_stun := 0.0
 var tail_rings: Array[Vector4] = []
 var previous_tail := Transform3D.IDENTITY
 var previous_target_feet := Vector3.ZERO
@@ -103,6 +104,7 @@ func _process(delta: float) -> void:
 		for part in impact_meshes: part.material_overlay = null
 
 func _physics_process(delta: float) -> void:
+	wall_stun = maxf(0,wall_stun-delta)
 	rear_cooldown = maxf(0,rear_cooldown-delta)
 	rear_tell.visible = false
 	lunge_tell.visible = false
@@ -115,6 +117,7 @@ func _physics_process(delta: float) -> void:
 		label.text = str(data.name)+" 已击退"
 		return
 	label.text = "%s  %d/%d\n%s" % [data.name,ceili(health),int(data.health),data.weakness]
+	if wall_stun>0: label.text += "\n撞击失衡 · 侧腹暴露"
 	if rear_attack and phase=="windup": label.text += "\n摆尾蓄势 · 离开后方扇区"
 	if not rear_attack and phase=="windup" and data.pattern in ["charge","leap"]:
 		label.text += "\n方向已锁定 · 横向避开" if clock>=float(data.windup)*0.7 else "\n蓄势跟踪 · 留意直线通道"
@@ -226,6 +229,22 @@ func _physics_process(delta: float) -> void:
 			phase = "idle"
 			clock = 0
 	move_and_slide()
+	if phase=="active" and not rear_attack and data.pattern in ["charge","leap"]:
+		for index in get_slide_collision_count():
+			var collision := get_slide_collision(index)
+			var normal := collision.get_normal()
+			if collision.get_collider() is StaticBody3D and absf(normal.y)<0.45 and normal.dot(lunge_direction)< -0.55:
+				phase = "recover"
+				clock = 0
+				wall_stun = 0.6
+				stagger = maxf(stagger,wall_stun)
+				exposed = float(data.recovery)+wall_stun
+				velocity.x = 0
+				velocity.z = 0
+				lunge_tell.hide()
+				tell.hide()
+				show_impact(true)
+				break
 	gait += delta*Vector2(velocity.x,velocity.z).length()*1.7
 	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length())
 
