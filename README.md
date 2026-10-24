@@ -96,4 +96,13 @@ WASD 移动，鼠标转视角，Shift 奔跑，空格闪避，中键锁定，Esc
 
 回放读取内部状态并自动选择时机，使用实际移动、动作请求、巨兽伤害和武器接触，不能代表人工难度验收。详细事件报告输出到项目父目录的 `Shubian-weapon-sequence.json` 与 `Shubian-interruptions.json`。
 
+五物种独立战斗与弱点验证入口（每场必须胜利、有实际武器接触和弱点命中；失败返回非零）：
+
+```powershell
+./tools/verify_species_encounters.ps1
+# 可通过 -GodotPath 指定其他 Godot 可执行文件。
+```
+
+每次生成独立的项目父目录 verification/encounters-* 报告，包含五场日志和 summary.json。验证读取本次运行的控制台结果，不以旧报告或仅成功启动作为通过依据。五场分别为独立单敌战斗，不是五敌同时对战；控制器读取内部状态，不证明人工偏难强度或操作手感。
+
 规则检查和场景集成检查不代表实际操作手感、美术、碰撞精度或完整对战已经验收。

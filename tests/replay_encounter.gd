@@ -8,6 +8,9 @@ var monster: CharacterBody3D
 var last_attack := "heavy"
 var result_saved := false
 var controller_name := "stationary_guard"
+var observed_contacts := 0
+var observed_weak_contacts := 0
+var observed_parts := {}
 
 func _initialize() -> void: call_deferred("setup")
 func setup() -> void:
@@ -26,6 +29,12 @@ func setup() -> void:
 		if creature!=monster: creature.set_physics_process(false)
 	fighter.global_position = monster.global_position+Vector3(0,0,3.2)
 	fighter.lock_target = monster
+	fighter.hit_confirmed.connect(func(_action: String, _beat: int, victim: Node3D, result: Dictionary):
+		if victim!=monster: return
+		observed_contacts += 1
+		if result.weak: observed_weak_contacts += 1
+		observed_parts[result.part] = int(observed_parts.get(result.part,0))+1
+	)
 	physics_frame.connect(control)
 
 func control() -> void:
@@ -35,10 +44,20 @@ func control() -> void:
 	if c.health<=0 or monster.health<=0 or elapsed>=120:
 		result_saved = true
 		var result := {"species":monster.data.id,"controller":controller_name,"simulation_seconds":snappedf(elapsed,0.01),"player_health":c.health,"monster_health":monster.health,"actions":decisions,"outcome":"victory" if monster.health<=0 else ("defeat" if c.health<=0 else "timeout"),"scope":"state-aware deterministic controller; no human difficulty or animation approval"}
+		result["contacts"] = observed_contacts
+		result["weak_contacts"] = observed_weak_contacts
+		result["parts"] = observed_parts
+		var required := "--require-weakness" in OS.get_cmdline_user_args()
+		var passed: bool = monster.health<=0 and observed_contacts>0 and (not required or observed_weak_contacts>0)
+		result["passed"] = passed
 		var file := FileAccess.open("res://../Shubian-encounter-"+controller_name+"-"+str(monster.data.id)+".json",FileAccess.WRITE)
 		file.store_string(JSON.stringify(result,"  "))
 		print("ENCOUNTER_REPLAY: ",JSON.stringify(result))
-		quit()
+		for action in ["move_left","move_right","move_forward","move_back","sprint"]: Input.action_release(action)
+		await create_timer(0.25).timeout
+		world.queue_free()
+		await process_frame
+		quit(0 if passed else 1)
 		return
 	if c.action in ["hurt","finisher","fourfold","spin","flash"]: return
 	if c.action!="idle" and c.elapsed<float(c.MOVES[c.action].chain): return
