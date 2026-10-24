@@ -168,6 +168,9 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 		var target: Vector3 = targets[side]
 		target.y += -drop-body.position.y
 		pose_leg(leg,target)
+		if action=="finisher" and side==1:
+			var extension := smoothstep(0.80,0.95,elapsed)*(1-smoothstep(1.02,1.32,elapsed))
+			normals[side] = Vector3.UP.rotated(Vector3.RIGHT,PI/4*extension)
 		pose_sole(leg,normals[side])
 		if planting[side] and not leg.hip.has_meta("turn_plant_world"):
 			leg.hip.set_meta("turn_plant_world",leg.ankle.global_position)

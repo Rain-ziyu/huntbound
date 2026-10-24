@@ -56,6 +56,7 @@ func run() -> void:
 	if foot_bone>=0:
 		var foot_pose := skeleton.get_bone_global_pose(foot_bone)
 		check(foot_pose.origin.z< -0.6 and foot_pose.origin.y>0.6,"saved finisher actually raises and extends kicking foot")
+		check(foot_pose.basis.y.normalized().z>0.69,"saved finisher retains the forward-facing sole tilt")
 	player.play("throw")
 	player.advance(0)
 	player.advance(0.33)

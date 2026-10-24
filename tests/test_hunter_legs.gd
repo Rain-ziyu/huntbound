@@ -41,6 +41,7 @@ func run() -> void:
 	p.animate(0,0)
 	var kick: Vector3 = p.to_local(p.weapon_contact_points("finisher",1)[0])
 	check(kick.z< -0.8 and kick.y>0.6,"finisher extends actual kicking toe forward and upward")
+	check((-p.rig.legs[1].boot.global_basis.y.normalized()).dot(p.rig.root.global_basis*Vector3.FORWARD)>0.70,"front kick presents the sole toward the target")
 	var support: Vector3 = p.to_local(p.rig.legs[-1].ankle.to_global(Vector3(0,-0.1,0)))
 	check(absf(support.y)<0.002,"kick leaves support foot planted")
 	var monster = get_nodes_in_group("monsters")[0]
@@ -56,6 +57,7 @@ func run() -> void:
 	p.animate(0,0)
 	var recovered: Vector3 = p.to_local(p.rig.legs[1].ankle.to_global(Vector3(0,-0.1,0)))
 	check(absf(recovered.y)<0.002,"kicking foot recovers to ground")
+	check(p.rig.legs[1].boot.global_basis.y.normalized().dot(Vector3.UP)>0.9999,"recovered kick restores a flat sole")
 	print("LEG_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame

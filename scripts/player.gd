@@ -450,7 +450,7 @@ func weapon_contact_points(action: String, beat: int) -> PackedVector3Array:
 	var points := PackedVector3Array()
 	if action=="finisher" and beat==1:
 		# Use the kicking foot rather than granting another full circular weapon hit.
-		points.append(rig.legs[1].ankle.to_global(Vector3(0,-0.025,-0.18)))
+		points.append(rig.legs[1].boot.to_global(Vector3(0,-0.5,-0.45)))
 	elif action=="reply":
 		for label in ["ButtContact","ButtNeckContact"]: points.append(rig.weapon.get_node(label).global_position)
 	elif action=="pull":

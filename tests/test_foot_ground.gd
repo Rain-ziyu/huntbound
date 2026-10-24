@@ -103,7 +103,7 @@ func run() -> void:
 	p.combat.set_action("finisher")
 	p.combat.elapsed = 0.95
 	p.animate(0,0)
-	check(p.rig.legs[1].boot.global_basis.y.normalized().dot(Vector3.UP)>0.9999,"kicking foot releases slope tilt")
+	check(p.rig.legs[1].boot.global_basis.y.normalized().dot(Vector3.UP)<0.8,"kicking foot releases slope tilt and raises toes for the front kick")
 	check(p.rig.legs[-1].boot.global_basis.y.normalized().dot(slope_normal)>0.9999,"kick support foot stays aligned")
 	if "--capture" in OS.get_cmdline_user_args():
 		world.hud.get_parent().hide()

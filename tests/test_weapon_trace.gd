@@ -53,7 +53,7 @@ func run() -> void:
 	check(butt[0].distance_to(p.rig.weapon.to_global(Vector3(0,-0.98,0)))<0.001,"reply traces butt end")
 	check(butt[0].distance_to(p.rig.weapon.to_global(Vector3(0,1.2,0)))>2,"reply does not trace forward prongs")
 	var foot: PackedVector3Array = p.weapon_contact_points("finisher",1)
-	check(foot.size()==1 and foot[0].distance_to(p.rig.legs[1].ankle.to_global(Vector3(0,-0.025,-0.18)))<0.001,"finisher second beat uses foot")
+	check(foot.size()==1 and foot[0].distance_to(p.rig.legs[1].boot.to_global(Vector3(0,-0.5,-0.45)))<0.001,"finisher second beat uses actual forefoot sole")
 	p.combat.set_action("fourfold")
 	m.global_position = Vector3(0,0,-2)
 	hp = m.health
