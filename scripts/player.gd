@@ -292,9 +292,12 @@ func foot_ground_sample(local_point: Vector3) -> Dictionary:
 
 func take_damage(amount: float, origin: Vector3, blockable: bool, interrupt := true) -> void:
 	var direction := (origin-global_position).normalized()
-	var result: String = combat.receive_damage(amount,blockable,direction.dot(-rig.root.global_basis.z)>0.15,interrupt)
+	var front := direction.dot(-rig.root.global_basis.z)>0.15
+	var exhausted_guard: bool = combat.action=="guard" and combat.elapsed>=0.12 and blockable and front and combat.stamina<15
+	var result: String = combat.receive_damage(amount,blockable,front,interrupt)
 	message = {"counter":"反击成功！旋转踢击，不消耗枪影。","guarded":"格挡成功：左键反击，再 Ctrl+左键闪刺。","immune":"免伤","armored":"霸体承伤：动作继续","hurt":"受击！注意预警与站位。"}.get(result,result)
 	if result=="ongoing": message = "毒雾持续伤害：离开绿色区域！"
+	if result=="hurt" and exhausted_guard: message = "耐力不足，架势被击破！先走位恢复。"
 	if result in ["hurt","armored"]: trigger_camera_impact(0.04)
 	elif result in ["guarded","counter"]: trigger_camera_impact(0.02)
 

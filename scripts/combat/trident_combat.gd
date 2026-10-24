@@ -84,7 +84,8 @@ func request(next: String) -> bool:
 func advance(delta: float) -> void:
 	guard_reward = maxf(0, guard_reward - delta)
 	flash_window = maxf(0, flash_window - delta)
-	stamina = minf(100, stamina + delta * (18 if action == "idle" else 6))
+	var recovery := 18.0 if action=="idle" else (0.0 if action=="guard" else 6.0)
+	stamina = minf(100, stamina + delta*recovery)
 	for i in range(shadow_lifetimes.size() - 1, -1, -1):
 		shadow_lifetimes[i] -= delta
 		if shadow_lifetimes[i] <= 0: shadow_lifetimes.remove_at(i)

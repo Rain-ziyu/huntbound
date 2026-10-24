@@ -68,7 +68,7 @@ func _ready() -> void:
 	hints.offset_top = -34
 	hints.text = "WASD 移动  ·  空格闪避  ·  中键锁定 / Tab 切换  ·  F1 操作说明  ·  F5 重试"
 	help = text_at(Vector2(22,280),17)
-	help.text = "操作说明 · 不暂停战斗\n左键斜刺 / 右键短按横扫、长按松开投枪瞬移\nE 回拉 / Alt+左键转身 / Q 架势 / R 收枪\n格挡成功 → 左键反击 → Ctrl+左键闪刺\n有枪影：Ctrl+左键四连刺 / Ctrl+右键旋枪\n拔枪后 Ctrl+空格插地，再按 Ctrl 迎击\nTab 切换目标 / Shift+Tab 反向切换\n锁定时视角跟随 / 鼠标横向拖动暂时接管\nShift 奔跑 / Esc 切换鼠标 / F1 收起说明"
+	help.text = "操作说明 · 不暂停战斗\n左键斜刺 / 右键短按横扫、长按松开投枪瞬移\nE 回拉 / Alt+左键转身 / Q 架势 / R 收枪\n架势内不恢复耐力，每次成功格挡消耗 15\n格挡成功 → 左键反击 → Ctrl+左键闪刺\n有枪影：Ctrl+左键四连刺 / Ctrl+右键旋枪\n拔枪后 Ctrl+空格插地，再按 Ctrl 迎击\nTab 切换目标 / Shift+Tab 反向切换\n锁定时视角跟随 / 鼠标横向拖动暂时接管\nShift 奔跑 / Esc 切换鼠标 / F1 收起说明"
 	help.hide()
 	target_text = text_at(Vector2.ZERO,17)
 	target_text.anchor_left = 0.5
@@ -104,6 +104,8 @@ static func followup(c, held: float) -> String:
 	if c.guard_reward>0: return "格挡成功 · 左键枪尾反击"
 	if c.flash_window>0: return "追击机会 · Ctrl+左键闪刺"
 	if held>=0: return "投枪就绪 · 松开右键" if held>=0.45 else "松开右键横扫 · 继续按住准备投枪"
+	if c.action=="guard":
+		return "耐力不足 · 收势后走位恢复" if c.stamina<15 else "架势中不恢复耐力 · 格挡后左键反击"
 	if not c.drawn: return "背负待机 · 左键或右键拔枪出招"
 	if not c.shadow_lifetimes.is_empty(): return "枪意就绪 · Ctrl+左键四连刺 / Ctrl+右键旋枪"
 	return "Q 架势 → 左键反击 → Ctrl+左键闪刺获得枪影"
