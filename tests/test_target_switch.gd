@@ -41,8 +41,10 @@ func run() -> void:
 	var candidates: Array = p.lock_candidates()
 	check(candidates.size()==3,"only nearby on-screen creatures are candidates")
 	check(candidates==[monsters[0],monsters[2],monsters[1]],"cycle order follows camera left to right")
+	p.camera_manual_time = 0.6
 	await key()
 	check(p.lock_target==monsters[0],"Tab from unlocked selects nearest visible creature")
+	check(p.camera_manual_time==0,"explicit target acquisition releases old manual camera grace")
 	await key()
 	check(p.lock_target==monsters[2],"Tab reaches next screen target")
 	if "--capture" in OS.get_cmdline_user_args():

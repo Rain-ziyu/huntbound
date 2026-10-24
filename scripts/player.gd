@@ -13,6 +13,7 @@ var rig: Dictionary
 var mount: Node3D
 var yaw := 0.0
 var pitch := -0.25
+var camera_manual_time := 0.0
 var motion_epoch := 0
 var walk_clock := 0.0
 var heavy_held := -1.0
@@ -97,6 +98,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.pressed and event.button_index==MOUSE_BUTTON_MIDDLE:
 			lock_target = nearest_monster() if not is_instance_valid(lock_target) else null
+			camera_manual_time = 0
 		if event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
 			var next := "light"
 			if event.alt_pressed: next = "turn"
@@ -112,8 +114,18 @@ func _unhandled_input(event: InputEvent) -> void:
 				heavy_held = -1
 
 func apply_look(relative: Vector2) -> void:
+	if absf(relative.x)>0.01: camera_manual_time = 0.75
 	yaw -= relative.x*0.003
 	pitch = clampf(pitch-relative.y*0.0025,-0.9,0.65)
+
+func update_lock_camera(delta: float) -> void:
+	camera_manual_time = maxf(0,camera_manual_time-delta)
+	if camera_manual_time>0 or combat.health<=0 or not is_instance_valid(lock_target) or lock_target.health<=0: return
+	var offset := lock_target.global_position-global_position
+	offset.y = 0
+	if offset.length_squared()<0.01 or offset.length()>30: return
+	var heading := atan2(-offset.x,-offset.z)
+	yaw = lerp_angle(yaw,heading,1-exp(-5.0*delta))
 
 func on_action_changed(next: String) -> void:
 	strike_windows.clear()
@@ -164,6 +176,7 @@ func cycle_lock(reverse := false) -> void:
 		lock_target = nearest_monster()
 	else:
 		lock_target = candidates[posmod(index+(-1 if reverse else 1),candidates.size())]
+	camera_manual_time = 0
 
 func _physics_process(delta: float) -> void:
 	if heavy_held>=0: heavy_held += delta
@@ -186,6 +199,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = -rig.root.basis.z.z*13
 	if not is_on_floor(): velocity.y -= 24*delta
 	move_and_slide()
+	update_lock_camera(delta)
 	if is_instance_valid(lock_target):
 		var offset := lock_target.global_position-global_position
 		rig.root.rotation.y = lerp_angle(rig.root.rotation.y,atan2(-offset.x,-offset.z),delta*10)
