@@ -1,6 +1,8 @@
 extends RefCounted
 ## Waist-driven anticipation, contact and recovery. These curves never change combat time.
 ## Key = (seconds, forward/back lean, torso yaw, upper-body fore/aft offset).
+# Seconds, height offset, fore/aft offset, pitch offset for the upward light thrust.
+const LIGHT_WEAPON := [Vector4(0,0,0,0),Vector4(0.11,-0.08,0.09,-0.12),Vector4(0.25,0,-0.15,0.18),Vector4(0.34,0.02,-0.10,0.27),Vector4(0.48,0.01,-0.03,0.12),Vector4(0.66,0,0,0)]
 const KEYS := {
 	"light":[Vector4(0,0,0,0),Vector4(0.11,0.035,-0.10,0.012),Vector4(0.25,-0.10,0.10,-0.035),Vector4(0.40,-0.04,0.04,-0.01),Vector4(0.66,0,0,0)],
 	"heavy":[Vector4(0,0,0,0),Vector4(0.18,0.04,-0.30,0.02),Vector4(0.43,-0.08,0.08,-0.025),Vector4(0.61,-0.04,0.28,-0.015),Vector4(0.92,0,0,0)],

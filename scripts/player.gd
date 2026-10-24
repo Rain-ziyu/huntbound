@@ -244,7 +244,12 @@ func animate(delta: float, speed: float) -> void:
 		var t: float = combat.elapsed
 		var p := clampf(t/float(Combat.MOVES[combat.action].duration),0,1)
 		match combat.action:
-			"light","flash","fourfold":
+			"light":
+				var path := HunterModel.Motion.interpolate(HunterModel.Motion.LIGHT_WEAPON,t)
+				w.position.y += path.y
+				w.position.z += path.z
+				w.rotation.x += path.w+clampf(pitch+0.25,-0.4,0.85)
+			"flash","fourfold":
 				var pulse := 0.0
 				for hit_time in Combat.MOVES[combat.action].hits:
 					pulse = maxf(pulse,exp(-pow((t-float(hit_time))/0.09,2)))
