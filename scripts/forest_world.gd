@@ -4,8 +4,10 @@ const Hunter = preload("res://scripts/player.gd")
 const Monster = preload("res://scripts/monster.gd")
 const Terrain = preload("res://scripts/forest_terrain.gd")
 const ForestArt = preload("res://scripts/forest_art.gd")
+const CombatHUD = preload("res://scripts/combat_hud.gd")
 var hunter: CharacterBody3D
 var hud: Label
+var combat_hud
 var navigation = preload("res://scripts/forest_navigation.gd").new()
 
 func obstacle(pos: Vector3, size: Vector3, color: Color) -> StaticBody3D:
@@ -119,35 +121,17 @@ func _ready() -> void:
 		monster.target = hunter
 		monster.position = positions[i]
 		add_child(monster)
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	hud = Label.new()
-	hud.position = Vector2(22,18)
-	hud.add_theme_font_size_override("font_size",21)
-	hud.add_theme_color_override("font_shadow_color",Color.BLACK)
-	hud.add_theme_constant_override("shadow_offset_x",2)
-	hud.add_theme_constant_override("shadow_offset_y",2)
-	layer.add_child(hud)
-	var info := Label.new()
-	info.position = Vector2(22,550)
-	info.add_theme_font_size_override("font_size",17)
-	info.text = "WASD 移动 / 鼠标视角 / Shift 奔跑 / 空格闪避 / 中键锁定 / Esc 鼠标\n左键轻击 / 右键短按横扫、长按松开投掷瞬移 / E 回拉 / Alt+左键转身\nQ 格挡 → 左键反击 → Ctrl+左键闪刺得枪影 / R 收枪\nCtrl+左键四连刺 / Ctrl+右键旋转 / Ctrl+空格插地 → 再按 Ctrl 反击\nF5 重试 · 模型与动作初稿，尚非最终美术和手感"
-	layer.add_child(info)
+	combat_hud = CombatHUD.new()
+	add_child(combat_hud)
+	hud = combat_hud.status
 	print("SHUBIAN_FOREST_READY: hunter + five monster species")
 	if "--capture" in OS.get_cmdline_user_args(): capture.call_deferred()
 
 func _process(_delta: float) -> void:
-	var c = hunter.combat
-	hud.text = "戍边 · 湿林战斗原型\n生命 %d / 240   耐力 %d   枪影 %d / 5\n动作：%s  %.2fs\n%s" % [int(c.health),int(c.stamina),c.shadow_lifetimes.size(),c.action,c.elapsed,hunter.message]
-	if c.health<=0: hud.text += "\n任务失败 · F5 重试"
 	var defeated := 0
 	for monster in get_tree().get_nodes_in_group("monsters"):
 		if monster.health<=0: defeated += 1
-	hud.text += "\n击退 %d / 5" % defeated
-	if defeated==5 and c.health>0: hud.text += "\n林地已清理 · F5 重新挑战"
-	if is_instance_valid(hunter.lock_target) and hunter.lock_target.health>0:
-		var m = hunter.lock_target
-		hud.text += "\n锁定：%s  %d/%d\n%s\n对策：%s" % [m.data.name,ceili(m.health),int(m.data.health),m.data.trait,m.data.weakness]
+	combat_hud.update_state(hunter,defeated)
 
 func capture() -> void:
 	await get_tree().create_timer(1).timeout
