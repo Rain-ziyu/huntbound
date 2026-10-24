@@ -71,9 +71,9 @@ static func tube(st: SurfaceTool, path: Array[Vector3], radius: float, color: Co
 			for point in ([path[row],rings[row][k],rings[row][j]] if row==0 else [path[row],rings[row][j],rings[row][k]]):
 				st.set_color(color)
 				st.add_vertex(point)
-static func orient(hand: MeshInstance3D, elbow: Vector3, grip_axis: Vector3, grip := 1.0) -> void:
+static func orient(hand: MeshInstance3D, elbow: Vector3, grip_axis: Vector3, grip := 1.0, finger_release := 0.0) -> void:
 	hand.basis = basis_for(hand.position,elbow,Vector3.RIGHT).slerp(basis_for(hand.position,elbow,grip_axis),grip)
-	hand.set_blend_shape_value(0,1-grip)
+	hand.set_blend_shape_value(0,1-grip*(1-finger_release))
 static func basis_for(point: Vector3, elbow: Vector3, grip_axis: Vector3) -> Basis:
 	var y := grip_axis.normalized()
 	var x := elbow-point

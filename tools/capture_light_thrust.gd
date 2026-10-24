@@ -41,13 +41,14 @@ func run() -> void:
 	p.yaw = 0
 	var heavy := "--heavy" in OS.get_cmdline_user_args()
 	var pull := "--pull" in OS.get_cmdline_user_args()
-	p.combat.set_action("pull" if pull else ("heavy" if heavy else "light"))
+	var toss := "--throw" in OS.get_cmdline_user_args()
+	p.combat.set_action("throw" if toss else ("pull" if pull else ("heavy" if heavy else "light")))
 	p.rig.root.rotation.y = 0
 	for i in 3:
-		var t: float = ([0.22,0.40,0.58] if pull else ([0.18,0.43,0.60] if heavy else [0.11,0.25,0.34]))[i]
+		var t: float = ([0.0,0.20,0.37] if toss else ([0.22,0.40,0.58] if pull else ([0.18,0.43,0.60] if heavy else [0.11,0.25,0.34])))[i]
 		p.combat.elapsed = t
 		p.animate(0,0)
-		label.text = ["01 / PREPARE","02 / CONTACT","03 / FOLLOW THROUGH"][i]+" / %.2f s" % t
+		label.text = (["01 / READY","02 / WINDUP","03 / RELEASE PREPARATION"] if toss else ["01 / PREPARE","02 / CONTACT","03 / FOLLOW THROUGH"])[i]+" / %.2f s" % t
 		await process_frame
 		await process_frame
 		await process_frame
@@ -56,7 +57,7 @@ func run() -> void:
 		frame.resize(800,600)
 		frame.convert(Image.FORMAT_RGB8)
 		sheet.blit_rect(frame,Rect2i(0,0,800,600),Vector2i(i*800,0))
-	sheet.save_png(ProjectSettings.globalize_path("res://../Shubian-pull-motion.png" if pull else ("res://../Shubian-heavy-sweep.png" if heavy else "res://../Shubian-light-thrust.png")))
+	sheet.save_png(ProjectSettings.globalize_path("res://../Shubian-throw-motion.png" if toss else ("res://../Shubian-pull-motion.png" if pull else ("res://../Shubian-heavy-sweep.png" if heavy else "res://../Shubian-light-thrust.png"))))
 	stage.queue_free()
 	await process_frame
 	quit()

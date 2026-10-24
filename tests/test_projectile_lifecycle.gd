@@ -26,6 +26,8 @@ func run() -> void:
 	p.yaw = PI
 	p.rig.root.rotation.y = PI
 	p.combat.set_action("throw")
+	p.combat.elapsed = 0.38
+	p.animate(0,0)
 	p.on_strike(0)
 	var shot = p.projectile
 	shot.set_physics_process(false)
@@ -41,6 +43,8 @@ func run() -> void:
 	p.yaw = 0
 	p.rig.root.rotation.y = 0
 	p.combat.set_action("throw")
+	p.combat.elapsed = 0.38
+	p.animate(0,0)
 	p.on_strike(0)
 	shot = p.projectile
 	shot.set_physics_process(false)
@@ -71,6 +75,8 @@ func run() -> void:
 	replacement.finish()
 	check(p.projectile==null and p.global_position==before,"repeated completion remains harmless")
 	p.combat.set_action("throw")
+	p.combat.elapsed = 0.38
+	p.animate(0,0)
 	p.on_strike(0)
 	shot = p.projectile
 	shot.set_physics_process(false)

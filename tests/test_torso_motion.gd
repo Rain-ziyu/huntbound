@@ -62,7 +62,7 @@ func run() -> void:
 				for side in [-1,1]:
 					var arm: Dictionary = p.rig.arms[side]
 					var grip: Vector3 = p.rig.weapon.transform*Vector3(0,0.18 if side==-1 else -0.28,0)
-					var release := smoothstep(0.28,0.38,p.combat.elapsed) if action=="throw" else 0.0
+					var release := smoothstep(0.38,0.60,p.combat.elapsed) if action=="throw" else 0.0
 					var relaxed: Vector3 = arm.shoulder.position+Vector3(0,-0.72,-0.015)
 					var expected: Vector3 = grip.lerp(relaxed,release)
 					worst_grip = maxf(worst_grip,arm.hand.position.distance_to(expected))

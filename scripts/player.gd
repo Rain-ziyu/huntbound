@@ -275,7 +275,13 @@ func animate(delta: float, speed: float) -> void:
 			"plant","wait","counter_window":
 				w.position = Vector3(0,1.15,-0.35)
 				w.rotation = Vector3(0,0,PI)
-			"throw": w.visible = t<0.38
+			"throw":
+				var path := HunterModel.Motion.interpolate(HunterModel.Motion.THROW_WEAPON,t)
+				w.position.y += path.y
+				w.position.z += path.z
+				w.rotation.y = path.w
+				w.rotation.z *= 1-smoothstep(0.20,0.38,t)
+				w.visible = t<0.38
 	if delta>0:
 		pose_blend = minf(1,pose_blend+delta/pose_duration)
 		var goal := w.transform
@@ -293,7 +299,8 @@ func animate(delta: float, speed: float) -> void:
 	HunterModel.pose_torso(rig,combat.action,combat.elapsed,walk_clock,speed,delta)
 	var release := smoothstep(0.28,0.38,combat.elapsed) if combat.action=="throw" else 0.0
 	if is_instance_valid(projectile): release = 1.0
-	HunterModel.pose_arms(rig,combat.drawn or equipment_grip>0 or equipment_main>0,walk_clock,equipment_grip*(1-release),equipment_main*(1-release))
+	var arm_release := smoothstep(0.38,0.60,combat.elapsed) if combat.action=="throw" else (1.0 if is_instance_valid(projectile) else 0.0)
+	HunterModel.pose_arms(rig,combat.drawn or equipment_grip>0 or equipment_main>0,walk_clock,equipment_grip*(1-arm_release),equipment_main*(1-arm_release),release)
 
 func foot_ground_height(local_point: Vector3) -> float:
 	var hit := foot_ground_sample(local_point)
@@ -355,7 +362,12 @@ func on_strike(_beat: int) -> void:
 		shot.amount = combat.damage()
 		projectile = shot
 		get_parent().add_child(shot)
-		shot.global_position = global_position+Vector3(0,1.1,0)
+		var launch: Vector3 = rig.weapon.global_position
+		var chest := global_position+Vector3(0,1.1,0)
+		var launch_probe := PhysicsRayQueryParameters3D.create(chest,launch,3,[get_rid()])
+		var obstruction := get_world_3d().direct_space_state.intersect_ray(launch_probe)
+		if not obstruction.is_empty(): launch = obstruction.position+(chest-launch).normalized()*0.05
+		shot.global_position = launch
 		shot.look_at(shot.global_position+shot.direction)
 		return
 	strike_windows.append({"action":action,"beat":_beat,"ends":combat.elapsed+0.12,"previous":weapon_contact_points(action,_beat),"victims":{}})

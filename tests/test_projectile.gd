@@ -24,6 +24,8 @@ func run() -> void:
 	var hp: float = m.health
 	var epoch: int = p.motion_epoch
 	p.combat.set_action("throw")
+	p.combat.elapsed = 0.38
+	p.animate(0,0)
 	p.on_strike(0)
 	check(is_instance_valid(p.projectile),"throw creates physical visual projectile")
 	var shot = p.projectile
