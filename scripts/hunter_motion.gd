@@ -4,6 +4,7 @@ extends RefCounted
 # Seconds, yaw offset, fore/aft offset, unused.
 const HEAVY_WEAPON := [Vector4(0,0,0,0),Vector4(0.18,-0.90,0.025,0),Vector4(0.43,-0.097826,0,0),Vector4(0.60,0.95,0,0),Vector4(0.92,0,0,0)]
 # Seconds, height offset, fore/aft offset, pitch offset.
+const PULL_WEAPON := [Vector4(0,0,0,0),Vector4(0.22,0,-0.12,0.12),Vector4(0.40,0,0.04,0.12),Vector4(0.58,0,0.20,0.12),Vector4(0.86,0,0,0)]
 const LIGHT_WEAPON := [Vector4(0,0,0,0),Vector4(0.11,-0.08,0.09,-0.12),Vector4(0.25,0,-0.15,0.18),Vector4(0.34,0.02,-0.10,0.27),Vector4(0.48,0.01,-0.03,0.12),Vector4(0.66,0,0,0)]
 const KEYS := {
 	"light":[Vector4(0,0,0,0),Vector4(0.11,0.035,-0.10,0.012),Vector4(0.25,-0.10,0.10,-0.035),Vector4(0.40,-0.04,0.04,-0.01),Vector4(0.66,0,0,0)],

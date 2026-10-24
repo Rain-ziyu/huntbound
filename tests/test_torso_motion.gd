@@ -62,12 +62,15 @@ func run() -> void:
 				for side in [-1,1]:
 					var arm: Dictionary = p.rig.arms[side]
 					var grip: Vector3 = p.rig.weapon.transform*Vector3(0,0.18 if side==-1 else -0.28,0)
-					worst_grip = maxf(worst_grip,arm.hand.position.distance_to(grip))
+					var release := smoothstep(0.28,0.38,p.combat.elapsed) if action=="throw" else 0.0
+					var relaxed: Vector3 = arm.shoulder.position+Vector3(0,-0.72,-0.015)
+					var expected: Vector3 = grip.lerp(relaxed,release)
+					worst_grip = maxf(worst_grip,arm.hand.position.distance_to(expected))
 					var error := maxf(absf(arm.shoulder.position.distance_to(arm.elbow.position)-0.39),absf(arm.elbow.position.distance_to(arm.hand.position)-0.39))
 					if error>worst_segment:
 						worst_segment = error
 						worst_case = "%s %.3f aim %.2f side %d" % [action,p.combat.elapsed,aim,side]
-	check(worst_grip<0.001,"all sampled hands remain on weapon grips")
+	check(worst_grip<0.001,"all sampled hands follow held or released targets")
 	check(worst_segment<0.002,"all sampled arm segments retain length: "+worst_case+" error "+str(worst_segment))
 	p.combat.set_action("heavy")
 	p.combat.elapsed = 0.18
