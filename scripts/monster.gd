@@ -43,6 +43,7 @@ var target_point := Vector3.ZERO
 var lunge_direction := Vector3.FORWARD
 var mesh: Node3D
 var tell: MeshInstance3D
+var area_warning_center := Vector3.INF
 var label: Label3D
 var attack_done := false
 var rear_attack := false
@@ -272,9 +273,8 @@ func _physics_process(delta: float) -> void:
 		if clock < float(data.windup)*0.7:
 			target_point = target.global_position
 			if data.pattern!="pulse": rotation.y = lerp_angle(rotation.y,atan2(-offset.x,-offset.z),delta*2)
-		if data.pattern=="mist":
-			tell.scale = Vector3(8,0.025,8)
-			tell.global_position = Vector3(target_point.x,preload("res://scripts/forest_terrain.gd").height_at(target_point.x,target_point.z)+0.08,target_point.z)
+		if data.pattern in ["mist","pulse"]:
+			update_area_warning(target_point if data.pattern=="mist" else global_position,4.0 if data.pattern=="mist" else float(data.reach))
 		if data.pattern in ["charge","leap"]:
 			var heading := target_point-lunge_origin
 			heading.y = 0
@@ -357,6 +357,16 @@ func _physics_process(delta: float) -> void:
 	previous_head_target = target.global_position
 	previous_head_epoch = target.motion_epoch
 
+
+func update_area_warning(center: Vector3, radius: float) -> void:
+	# Cache only a stationary world-space disc; actor turning must not rotate its terrain fit.
+	tell.global_transform = Transform3D(Basis.IDENTITY,center)
+	if center!=area_warning_center:
+		area_warning_center = center
+		tell.mesh = Hazard.ground_disc(tell,radius)
+	tell.material_override.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	tell.material_override.albedo_color.a = 0.28
+	tell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func move_actor() -> void:
 	move_and_slide()

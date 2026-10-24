@@ -54,7 +54,7 @@ func run() -> void:
 	world.add_child(pulse)
 	pulse.set_physics_process(false)
 	pulse._process(1)
-	check(pulse.mist_material==null and pulse.boundary==null,"mist animation leaves pulse behavior independent")
+	check(pulse.mist_material==null and pulse.puffs.is_empty() and pulse.boundary!=null,"pulse owns a boundary without mist shader or puffs")
 	print("MIST_VISUAL_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame

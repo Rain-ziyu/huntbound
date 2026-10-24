@@ -22,8 +22,8 @@ func _ready() -> void:
 	var material := surface.material_override as StandardMaterial3D
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.albedo_color.a = 0.45
-	if kind=="mist":
-		material.albedo_color.a = 0.12
+	if kind in ["mist","pulse"]:
+		material.albedo_color.a = 0.12 if kind=="mist" else 0.35
 		var disc := CylinderMesh.new()
 		disc.top_radius = radius
 		disc.bottom_radius = radius
@@ -31,9 +31,10 @@ func _ready() -> void:
 		disc.radial_segments = 64
 		surface.mesh = disc
 		surface.scale = Vector3.ONE
-		mist_material = ShaderMaterial.new()
-		mist_material.shader = preload("res://shaders/hazard_mist.gdshader")
-		mist_material.set_shader_parameter("density",1.0)
+		if kind=="mist":
+			mist_material = ShaderMaterial.new()
+			mist_material.shader = preload("res://shaders/hazard_mist.gdshader")
+			mist_material.set_shader_parameter("density",1.0)
 		boundary = MeshInstance3D.new()
 		boundary.name = "DangerBoundary"
 		var ring := TorusMesh.new()
@@ -42,10 +43,10 @@ func _ready() -> void:
 		ring.rings = 64
 		ring.ring_segments = 8
 		boundary.mesh = ring
-		boundary.material_override = Visuals.mat(Color("aec878"),true)
+		boundary.material_override = Visuals.mat(Color("aec878") if kind=="mist" else Color("78cfe2"),true)
 		boundary.position.y = 0.1
 		add_child(boundary)
-		for i in 7:
+		for i in (7 if kind=="mist" else 0):
 			var angle := i*TAU/7
 			var puff := Visuals.piece(self,Vector3(cos(angle)*radius*0.5,0.7,sin(angle)*radius*0.5),Vector3(radius*0.7,1.1,radius*0.7),Color("7ea866"),true)
 			puff.material_override = mist_material
@@ -61,11 +62,14 @@ func _process(delta: float) -> void:
 	for index in puffs.size(): puffs[index].position.y = puff_base_y[index]+sin(visual_age*0.9+index*0.8)*0.09
 
 func ground_point(x: float, z: float, lift: float) -> Vector3:
-	var world := to_global(Vector3(x,0,z))
-	return to_local(Vector3(world.x,Terrain.effect_height_at(world.x,world.z)+lift,world.z))
+	return disc_point(self,x,z,lift)
+
+static func disc_point(origin: Node3D, x: float, z: float, lift: float) -> Vector3:
+	var world := origin.to_global(Vector3(x,0,z))
+	return origin.to_local(Vector3(world.x,Terrain.effect_height_at(world.x,world.z)+lift,world.z))
 
 func conform_ground() -> void:
-	if kind!="mist" or is_queued_for_deletion(): return
+	if is_queued_for_deletion(): return
 	var band := SurfaceTool.new()
 	band.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for index in 64:
@@ -80,17 +84,26 @@ func conform_ground() -> void:
 	boundary.mesh = band.commit()
 	boundary.position = Vector3.ZERO
 	boundary.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	surface.mesh = ground_disc(self,radius)
+	surface.position = Vector3.ZERO
+	surface.scale = Vector3.ONE
+	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for index in puffs.size():
+		var puff := puffs[index]
+		puff_base_y[index] = ground_point(puff.position.x,puff.position.z,0.7).y
+
+static func ground_disc(origin: Node3D, disc_radius: float) -> ArrayMesh:
 	var fill := SurfaceTool.new()
 	fill.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var rings := maxi(1,ceili(radius/0.35))
+	var rings := maxi(1,ceili(disc_radius/0.35))
 	var samples: Array[PackedVector3Array] = []
-	var center := ground_point(0,0,0.06)
+	var center := disc_point(origin,0,0,0.06)
 	for ring in range(rings+1):
 		var row := PackedVector3Array()
-		var distance := radius*float(ring)/rings
+		var distance := disc_radius*float(ring)/rings
 		for index in 64:
 			var angle := TAU*index/64
-			row.append(center if ring==0 else ground_point(cos(angle)*distance,sin(angle)*distance,0.06))
+			row.append(center if ring==0 else disc_point(origin,cos(angle)*distance,sin(angle)*distance,0.06))
 		samples.append(row)
 	for ring in rings:
 		for index in 64:
@@ -101,13 +114,7 @@ func conform_ground() -> void:
 			var ob: Vector3 = samples[ring+1][next]
 			for point in ([ia,oa,ob] if ring==0 else [ia,oa,ib,oa,ob,ib]): fill.add_vertex(point)
 	fill.generate_normals()
-	surface.mesh = fill.commit()
-	surface.position = Vector3.ZERO
-	surface.scale = Vector3.ONE
-	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	for index in puffs.size():
-		var puff := puffs[index]
-		puff_base_y[index] = ground_point(puff.position.x,puff.position.z,0.7).y
+	return fill.commit()
 
 func _physics_process(delta: float) -> void:
 	lifetime -= delta
