@@ -86,10 +86,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		apply_look(event.relative)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
-			KEY_ESCAPE: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode==Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
+			KEY_ESCAPE:
+				heavy_held = -1
+				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode==Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
 			KEY_Q: combat.request("guard")
 			KEY_E: combat.request("pull")
-			KEY_R: combat.request("sheathe")
+			KEY_R:
+				if combat.request("sheathe"): heavy_held = -1
 			KEY_TAB: cycle_lock(event.shift_pressed)
 			KEY_SPACE: combat.request("plant" if event.ctrl_pressed else "dodge")
 			KEY_CTRL:
@@ -127,7 +130,11 @@ func update_lock_camera(delta: float) -> void:
 	var heading := atan2(-offset.x,-offset.z)
 	yaw = lerp_angle(yaw,heading,1-exp(-5.0*delta))
 
+func _notification(what: int) -> void:
+	if what==NOTIFICATION_WM_WINDOW_FOCUS_OUT: heavy_held = -1
+
 func on_action_changed(next: String) -> void:
+	if next!="idle": heavy_held = -1
 	strike_windows.clear()
 	if next=="hurt" and is_instance_valid(projectile): projectile.cancel_arrival()
 	if not is_instance_valid(lock_target) and next not in ["idle","hurt","dodge","wait","counter_window"]:

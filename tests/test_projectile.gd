@@ -59,4 +59,3 @@ func run() -> void:
 	world.queue_free()
 	await process_frame
 	quit(1 if failures else 0)
-
