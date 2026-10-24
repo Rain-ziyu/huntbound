@@ -86,6 +86,10 @@ func _ready() -> void:
 		ghost.get_meta("spectral_material").set_shader_parameter("phase_offset",i*0.9)
 		ghost.hide()
 		ghosts.append(ghost)
+	# Establish the actual starting pose before the first rendered/physics frame.
+	animate(0,0)
+	pose_from = rig.weapon.transform
+	pose_blend = 1.0
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey: virtual_keys.movement(event)

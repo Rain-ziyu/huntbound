@@ -66,6 +66,7 @@ func run() -> void:
 	if ready:
 		var fresh = current_scene.hunter
 		check(fresh.combat.health==240 and not fresh.defeat.started,"F5 creates fresh live hunter after defeat")
+		check(not fresh.combat.drawn and fresh.rig.weapon.position.distance_to(Vector3(0,1.05,0.26))<0.001,"F5 restores initialized back-carried weapon")
 		world = current_scene
 	print("PLAYER_DEFEAT_CHECKS: ",checks," FAILURES: ",failures)
 	if is_instance_valid(world): world.queue_free()
