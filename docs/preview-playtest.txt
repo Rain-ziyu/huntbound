@@ -3,7 +3,7 @@
 将压缩包完整解压到一个文件夹，双击 Start-Shubian.bat。
 Shubian.exe 与 Shubian.pck 必须保持在同一文件夹。
 
-WASD 移动；鼠标转向；Shift 奔跑；中键锁定或解除锁定。
+WASD 移动；鼠标转向；Shift 奔跑；中键锁定或解除锁定；Tab 切换目标，Shift+Tab 反向切换。
 左键轻击；右键短按横扫，长按松开投枪瞬移。
 E 回拉；Alt+左键转身；Q 格挡；R 收枪；空格闪避。
 格挡成功后左键反击，再 Ctrl+左键闪刺，命中获得枪影。

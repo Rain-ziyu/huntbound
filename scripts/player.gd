@@ -89,6 +89,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_Q: combat.request("guard")
 			KEY_E: combat.request("pull")
 			KEY_R: combat.request("sheathe")
+			KEY_TAB: cycle_lock(event.shift_pressed)
 			KEY_SPACE: combat.request("plant" if event.ctrl_pressed else "dodge")
 			KEY_CTRL:
 				if combat.action=="wait": combat.request("counter_window")
@@ -120,20 +121,54 @@ func on_action_changed(next: String) -> void:
 	if not is_instance_valid(lock_target) and next not in ["idle","hurt","dodge","wait","counter_window"]:
 		rig.root.rotation.y = yaw
 
+func lock_candidates() -> Array[Node3D]:
+	var candidates: Array[Node3D] = []
+	var view := get_viewport().get_camera_3d()
+	if not is_instance_valid(view) or combat.health<=0: return candidates
+	for monster in get_tree().get_nodes_in_group("monsters"):
+		if monster.health<=0 or not monster.is_visible_in_tree() or global_position.distance_to(monster.global_position)>=24: continue
+		for height in [0.6,0.95]:
+			var point: Vector3 = monster.global_position+Vector3.UP*float(monster.data.size)*height
+			if not view.is_position_in_frustum(point): continue
+			var query := PhysicsRayQueryParameters3D.create(view.global_position,point,3,[get_rid(),monster.get_rid()])
+			if get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+				candidates.append(monster)
+				break
+	candidates.sort_custom(func(a: Node3D,b: Node3D) -> bool:
+		var left: Vector3 = view.to_local(a.global_position)
+		var right: Vector3 = view.to_local(b.global_position)
+		var angle_a := atan2(left.x,-left.z)
+		var angle_b := atan2(right.x,-right.z)
+		if is_equal_approx(angle_a,angle_b): return a.get_instance_id()<b.get_instance_id()
+		return angle_a<angle_b
+	)
+	return candidates
+
 func nearest_monster() -> Node3D:
 	var result: Node3D
 	var distance := 24.0
-	for m in get_tree().get_nodes_in_group("monsters"):
-		var d: float = global_position.distance_to(m.global_position)
-		if m.health>0 and d<distance:
-			distance = d
-			result = m
+	for monster in lock_candidates():
+		var current := global_position.distance_to(monster.global_position)
+		if current<distance:
+			distance = current
+			result = monster
 	return result
+
+func cycle_lock(reverse := false) -> void:
+	var candidates := lock_candidates()
+	if candidates.is_empty():
+		lock_target = null
+		return
+	var index := candidates.find(lock_target)
+	if index<0:
+		lock_target = nearest_monster()
+	else:
+		lock_target = candidates[posmod(index+(-1 if reverse else 1),candidates.size())]
 
 func _physics_process(delta: float) -> void:
 	if heavy_held>=0: heavy_held += delta
 	combat.advance(delta)
-	if is_instance_valid(lock_target) and lock_target.health<=0: lock_target = null
+	if is_instance_valid(lock_target) and (lock_target.health<=0 or global_position.distance_to(lock_target.global_position)>30): lock_target = null
 	var axis := Input.get_vector("move_left","move_right","move_forward","move_back")
 	var input := Vector3(axis.x,0,axis.y)
 	var direction := input.normalized().rotated(Vector3.UP,yaw)

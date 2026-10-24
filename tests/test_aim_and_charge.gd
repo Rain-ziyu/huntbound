@@ -7,6 +7,10 @@ func check(ok: bool, label: String) -> void:
 		failures += 1
 		printerr("FAIL: ",label)
 func _initialize() -> void: call_deferred("run")
+func sole_position(leg: Node3D) -> Vector3:
+	var skeleton: Skeleton3D = leg.get_node("LegSkeleton")
+	var foot: MeshInstance3D = leg.get_node("Foot")
+	return leg.to_global(skeleton.get_bone_global_pose(2)*skeleton.get_bone_global_rest(2).affine_inverse()*(foot.transform*Vector3(0,-0.5,0)))
 func run() -> void:
 	var world = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(world)
@@ -45,10 +49,10 @@ func run() -> void:
 	var storm = monsters[4]
 	storm.CreatureModel.animate(storm.mesh,storm.data,0,"idle",0,0)
 	var before: float = storm.Parts.volumes(storm)[0].center.y
-	var foot_before: float = storm.mesh.get_node("Hind1").global_position.y
+	var foot_before := sole_position(storm.mesh.get_node("Hind1"))
 	storm.CreatureModel.animate(storm.mesh,storm.data,0,"windup",0.4,0)
 	check(is_equal_approx(before-storm.Parts.volumes(storm)[0].center.y,0.45),"charging posture visibly lowers charged spine proxy")
-	check(is_equal_approx(foot_before,storm.mesh.get_node("Hind1").global_position.y),"charging torso does not sink planted legs through floor")
+	check(foot_before.distance_to(sole_position(storm.mesh.get_node("Hind1")))<0.002,"charging torso keeps actual skinned sole planted")
 	storm.phase = "windup"
 	storm.clock = 0.3
 	storm.rotation.y = 0
