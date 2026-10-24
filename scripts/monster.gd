@@ -247,7 +247,8 @@ func _physics_process(delta: float) -> void:
 				tell.hide()
 				show_impact(true)
 				break
-	gait += delta*Vector2(velocity.x,velocity.z).length()*1.7
+	# Presentation cadence follows travel without turning a lunge into rapid foot flutter.
+	gait += delta*minf(Vector2(velocity.x,velocity.z).length(),float(data.speed)*1.2)*CreatureModel.GAIT_PER_METER
 	var grounded_pose: bool = is_on_floor() and not (phase=="active" and data.pattern=="leap")
 	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length(),foot_ground_height if grounded_pose else Callable(),foot_ground_normal if grounded_pose else Callable())
 

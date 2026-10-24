@@ -44,7 +44,7 @@
 & 'D:/Godot/Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tools/capture_creature_models.gd
 ```
 
-保存的巨兽模型包含五节尾部骨骼，以及各条步行腿独立的髋—膝—踝骨骼、Skin 和混合权重网格；游戏内由同一套源代码驱动尾部弯曲、屈膝与抬脚。躯干、头颈仍未完成统一全身骨骼，足底锁定和坡面步态也未完成，尚不是正式巨兽动作库。tools/replay_tail_skin_study.gd 和 tools/replay_creature_leg_study.gd 可生成尾部对照、原地步态研究，不是实战回放。
+保存的巨兽模型包含五节尾部骨骼，以及各条步行腿独立的髋—膝—踝骨骼、Skin 和混合权重网格；游戏内驱动尾部弯曲、屈膝与抬脚，普通行走加入支撑脚世界锚点和坡面高度/朝向适配。躯干、头颈仍未完成统一全身骨骼，起停过渡与完整转向步态仍需制作，尚不是正式巨兽动作库。tools/replay_tail_skin_study.gd 和 tools/replay_creature_leg_study.gd 可生成尾部、原地步态研究；后者传入 -- --travel 可生成前进步态研究，均不是实战回放。
 
 森林由 `scripts/forest_art.gd` 和 `shaders/forest_*.gdshader` 生成树冠、蕨类、湿地与溪流外观。以下图形模式命令生成地图总览、林下及溪边截图，并输出限定待机视图的渲染采样报告：
 

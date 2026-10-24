@@ -4,6 +4,7 @@ const H = preload("res://scripts/hunter_model.gd")
 const Surface = preload("res://scripts/creature_surface.gd")
 const TailSkin = preload("res://scripts/creature_tail_skin.gd")
 const LegSkin = preload("res://scripts/creature_leg_skin.gd")
+const GAIT_PER_METER := 4.2
 
 static func create(parent: Node3D, data: Dictionary) -> Node3D:
 	var root := V.pivot(parent,"CreatureMesh",Vector3.ZERO)
@@ -69,8 +70,9 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 
 static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float, ground: Callable = Callable(), ground_normal: Callable = Callable()) -> void:
 	var tail := root.get_node("Tail") as Node3D
-	tail.rotation.y = sin(gait*0.5)*0.12
-	TailSkin.animate(tail,gait,phase,clock)
+	var tail_gait := gait*(1.7/GAIT_PER_METER)
+	tail.rotation.y = sin(tail_gait*0.5)*0.12
+	TailSkin.animate(tail,tail_gait,phase,clock)
 	var neck := root.get_node("Neck") as Node3D
 	var frill := neck.get_node_or_null("Frill") as MeshInstance3D
 	if frill:
@@ -109,8 +111,18 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 					target.z = sin(step)*side*minf(float(data.size)*0.16,speed*0.06)
 					lift = maxf(0,cos(step)*side)*minf(float(data.size)*0.10,speed*0.035)
 					target.y += lift
+				var planting := ground.is_valid() and phase=="idle" and speed>0.1 and lift<0.001
+				var sole_offset := Vector3(0,-float(data.size)*0.05,-float(data.size)*0.10)
+				if leg.has_meta("plant_world"):
+					var anchor: Vector3 = leg.to_local(leg.get_meta("plant_world"))-sole_offset
+					var forward: Vector3 = leg.get_meta("plant_forward")
+					if not planting or Vector2(anchor.x,anchor.z).length()>float(data.size)*0.32 or leg.global_basis.z.normalized().dot(forward)<0.8:
+						leg.remove_meta("plant_world")
+						leg.remove_meta("plant_forward")
+					else:
+						target.x = anchor.x
+						target.z = anchor.z
 				if ground.is_valid():
-					var sole_offset := Vector3(0,-float(data.size)*0.05,-float(data.size)*0.10)
 					var sample_point := leg.to_global(target+sole_offset)
 					var height: float = clampf(ground.call(sample_point),-0.35,0.35)
 					target.y += height
@@ -120,6 +132,9 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 						normal = Vector3.UP.lerp(normal.normalized(),1-smoothstep(0.01,float(data.size)*0.06,lift)).normalized()
 						foot_basis = Basis(Quaternion(Vector3.UP,normal))
 						target += sole_offset-foot_basis*sole_offset
+					if planting and not leg.has_meta("plant_world"):
+						leg.set_meta("plant_world",leg.to_global(target+foot_basis*sole_offset))
+						leg.set_meta("plant_forward",leg.global_basis.z.normalized())
 				targets.append({"leg":leg,"target":target,"foot_basis":foot_basis})
 	root.position.y += lowest
 	for entry in targets:
