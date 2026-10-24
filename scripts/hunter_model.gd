@@ -102,14 +102,17 @@ static func pose_torso(rig: Dictionary, action: String, elapsed: float, gait: fl
 		var arm: Dictionary = rig.arms[side]
 		arm.shoulder.position = rig.torso.transform*(arm.rest_shoulder-Vector3(0,1.08,0))
 
-static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bool, gait: float, speed: float, delta: float) -> void:
+static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bool, gait: float, speed: float, delta: float, ground: Callable = Callable()) -> void:
 	var drop := 0.09 if armed else 0.015
 	if action in ["guard","reply"]: drop = 0.13
 	if action in ["plant","wait","counter_window"]: drop = 0.18
 	if action=="dodge": drop = 0.22
 	if action=="hurt": drop = 0.16
 	var body: Node3D = rig.root
-	body.position.y = lerpf(body.position.y,-drop,minf(1,delta*14)) if delta>0 else -drop
+	var previous_height := body.position.y
+	body.position.y = -drop
+	var targets := {}
+	var lowest := 0.0
 	for side in [-1,1]:
 		var leg: Dictionary = rig.legs[side]
 		var stance := -0.16 if side==-1 else 0.14
@@ -130,6 +133,18 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 			var weight := chamber*(1-smoothstep(1.02,1.32,elapsed))
 			target.y += lerpf(0.55,0.62,extension)*weight
 			target.z = lerpf(target.z,lerpf(-0.18,-0.72,extension),weight)
+		# Keep the attacking foot on its authored arc; sample support/swing feet only.
+		if ground.is_valid() and not (action=="finisher" and side==1 and elapsed>=0.60 and elapsed<1.32):
+			var height: float = clampf(ground.call(Vector3(target.x,0,target.z)),-0.22,0.22)
+			target.y += height
+			lowest = minf(lowest,height)
+		targets[side] = target
+	# Lower the visual body for the downhill foot without moving the gameplay capsule.
+	body.position.y = lerpf(previous_height,-drop+lowest,minf(1,delta*14)) if delta>0 else -drop+lowest
+	for side in [-1,1]:
+		var leg: Dictionary = rig.legs[side]
+		var target: Vector3 = targets[side]
+		target.y += -drop-body.position.y
 		pose_leg(leg,target)
 		if rig.has("skirts"):
 			rig.skirts[side].rotation.x = clampf(leg.hip.rotation.x,0,1.3)*0.7
