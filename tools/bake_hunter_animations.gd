@@ -9,6 +9,14 @@ func run() -> void:
 	var p = world.hunter
 	p.set_physics_process(false)
 	for m in get_nodes_in_group("monsters"): m.set_physics_process(false)
+	# Bake against canonical flat ground, not the initial airborne spawn.
+	p.global_position = Vector3.ZERO
+	p.velocity = Vector3.ZERO
+	p.lock_target = null
+	p.yaw = 0
+	p.rig.root.rotation.y = 0
+	await physics_frame
+	await physics_frame
 	var library := AnimationLibrary.new()
 	var skeleton: Skeleton3D = p.rig.skinning.skeleton
 	for action in ["idle","light","heavy","pull","turn","guard","reply","flash","throw","fourfold","spin","plant","wait","counter_window","finisher","dodge","hurt"]:

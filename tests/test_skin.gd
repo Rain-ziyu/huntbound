@@ -65,6 +65,12 @@ func run() -> void:
 		finger_parts += 1
 		check(absf(part.get_blend_shape_value(0)-0.5)<0.06,"saved throw clip progressively opens rendered fingers")
 	check(finger_parts==2,"saved model retains both hand blend shapes")
+	for action in ["plant","wait"]:
+		player.play(action)
+		player.advance(0)
+		player.advance(0.60)
+		var tip: Marker3D = model.get_node("Trident/TipContact")
+		check(absf(tip.global_position.y+0.025)<0.015,"saved planted animation retains canonical floor contact: "+action)
 	print("SKIN_CHECKS: ",checks," FAILURES: ",failures)
 	model.queue_free()
 	await process_frame

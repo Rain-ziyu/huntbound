@@ -237,6 +237,7 @@ func animate(delta: float, speed: float) -> void:
 	walk_clock += delta*speed*2.6
 	for side in [-1,1]:
 		rig.joints["arm"+str(side)].rotation.x = -0.85 if combat.drawn else -sin(walk_clock)*side*minf(speed*0.08,0.3)
+	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
 	var w: Node3D = rig.weapon
 	w.visible = not is_instance_valid(projectile)
 	w.position = Vector3(0,1.20,-0.32) if combat.drawn else Vector3(0,1.05,0.26)
@@ -274,8 +275,15 @@ func animate(delta: float, speed: float) -> void:
 				w.position.z += 0.55
 				if combat.action=="reply": w.position.z -= sin(p*PI)*0.18
 			"plant","wait","counter_window":
-				w.position = Vector3(0,1.15,-0.35)
+				var seated := planted_weapon_height()
+				w.position = Vector3(0,seated,-0.35)
 				w.rotation = Vector3(0,0,PI)
+				if combat.action=="plant":
+					var raised := smoothstep(0,0.18,t)
+					var drive := smoothstep(0.18,0.48,t)
+					w.position.y = lerpf(1.20,seated,raised)+0.30*raised*(1-drive)
+					var ready := Basis.from_euler(Vector3(-PI/2,0,-0.15)).get_rotation_quaternion()
+					w.quaternion = ready.slerp(Basis.from_euler(Vector3(0,0,PI)).get_rotation_quaternion(),smoothstep(0,0.18,t))
 			"throw":
 				var path := HunterModel.Motion.interpolate(HunterModel.Motion.THROW_WEAPON,t)
 				w.position.y += path.y
@@ -299,12 +307,21 @@ func animate(delta: float, speed: float) -> void:
 		ghosts[i].visible = combat.health>0 and i<combat.shadow_lifetimes.size()
 		if ghosts[i].visible:
 			ghosts[i].get_meta("spectral_material").set_shader_parameter("life_fade",0.2+0.8*smoothstep(0,6,combat.shadow_lifetimes[i]))
-	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
 	HunterModel.pose_torso(rig,combat.action,combat.elapsed,walk_clock,speed,delta)
 	var release := smoothstep(0.28,0.38,combat.elapsed) if combat.action=="throw" else 0.0
 	if is_instance_valid(projectile): release = 1.0
 	var arm_release := smoothstep(0.38,0.60,combat.elapsed) if combat.action=="throw" else (1.0 if is_instance_valid(projectile) else 0.0)
 	HunterModel.pose_arms(rig,combat.drawn or equipment_grip>0 or equipment_main>0,walk_clock,equipment_grip*(1-arm_release),equipment_main*(1-arm_release),release)
+
+func planted_weapon_height() -> float:
+	var point: Vector3 = rig.root.to_global(Vector3(0,0,-0.35))
+	point.y = global_position.y
+	var excluded: Array[RID] = [get_rid()]
+	for creature in get_tree().get_nodes_in_group("monsters"): excluded.append(creature.get_rid())
+	var probe := PhysicsRayQueryParameters3D.create(point+Vector3.UP*0.9,point-Vector3.UP*2,3,excluded)
+	var floor_hit := get_world_3d().direct_space_state.intersect_ray(probe)
+	if floor_hit.is_empty() or floor_hit.normal.y<0.72 or absf(floor_hit.position.y-global_position.y)>0.4: return 1.15
+	return rig.root.to_local(floor_hit.position).y+1.20-0.025
 
 func foot_ground_height(local_point: Vector3) -> float:
 	var hit := foot_ground_sample(local_point)
