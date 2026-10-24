@@ -7,6 +7,7 @@ const HunterModel = preload("res://scripts/hunter_model.gd")
 const Parts = preload("res://scripts/monster_parts.gd")
 const HitFeedback = preload("res://scripts/hit_feedback.gd")
 const TeleportFeedback = preload("res://scripts/teleport_feedback.gd")
+const HunterVisibility = preload("res://scripts/hunter_visibility.gd")
 var combat = Combat.new()
 var rig: Dictionary
 var mount: Node3D
@@ -51,6 +52,9 @@ func _ready() -> void:
 	col.position.y = 0.9
 	add_child(col)
 	rig = HunterModel.create(self)
+	var visibility := HunterVisibility.new()
+	visibility.name = "OcclusionVisibility"
+	add_child(visibility)
 	mount = Node3D.new()
 	get_parent().add_child.call_deferred(mount)
 	var arm := SpringArm3D.new()
