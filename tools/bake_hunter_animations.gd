@@ -34,6 +34,8 @@ func run() -> void:
 		clip.track_set_path(rot_track,NodePath("Trident"))
 		var body_track := clip.add_track(Animation.TYPE_POSITION_3D)
 		clip.track_set_path(body_track,NodePath("."))
+		var body_rotation_track := clip.add_track(Animation.TYPE_ROTATION_3D)
+		clip.track_set_path(body_rotation_track,NodePath("."))
 		var finger_tracks := []
 		for binding in p.rig.skinning.bindings:
 			if binding.rendered.get_blend_shape_count()>0:
@@ -54,6 +56,7 @@ func run() -> void:
 			clip.position_track_insert_key(pos_track,t,p.rig.weapon.position)
 			clip.rotation_track_insert_key(rot_track,t,p.rig.weapon.quaternion)
 			clip.position_track_insert_key(body_track,t,p.rig.root.position)
+			clip.rotation_track_insert_key(body_rotation_track,t,p.rig.root.quaternion)
 		library.add_animation(action,clip)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://resources/animations"))
 	var error := ResourceSaver.save(library,"res://resources/animations/trident_library.tres")

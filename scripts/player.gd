@@ -18,6 +18,8 @@ var yaw := 0.0
 var pitch := -0.25
 var camera_manual_time := 0.0
 var motion_epoch := 0
+var body_turn_applied := 0.0
+var body_turn_pose := 0.0
 var walk_clock := 0.0
 var heavy_held := -1.0
 var lock_target: Node3D
@@ -138,7 +140,17 @@ func update_lock_camera(delta: float) -> void:
 func _notification(what: int) -> void:
 	if what==NOTIFICATION_WM_WINDOW_FOCUS_OUT: heavy_held = -1
 
+func clear_body_turn() -> void:
+	if body_turn_applied!=0:
+		rig.root.rotation.y -= body_turn_applied
+		rig.weapon.transform = Transform3D(Basis(Vector3.UP,body_turn_applied),Vector3.ZERO)*rig.weapon.transform
+	body_turn_applied = 0
+
+func combat_forward() -> Vector3:
+	return global_basis*Vector3.FORWARD.rotated(Vector3.UP,rig.root.rotation.y-body_turn_applied)
+
 func on_action_changed(next: String) -> void:
+	clear_body_turn()
 	if next!="idle": heavy_held = -1
 	strike_windows.clear()
 	if next=="hurt" and is_instance_valid(projectile): projectile.cancel_arrival()
@@ -191,6 +203,7 @@ func cycle_lock(reverse := false) -> void:
 	camera_manual_time = 0
 
 func _physics_process(delta: float) -> void:
+	clear_body_turn()
 	if combat.health<=0: heavy_held = -1
 	elif heavy_held>=0: heavy_held += delta
 	combat.advance(delta)
@@ -204,12 +217,12 @@ func _physics_process(delta: float) -> void:
 	velocity.x = direction.x*speed
 	velocity.z = direction.z*speed
 	if combat.health>0 and combat.action=="dodge":
-		var dash: Vector3 = direction if direction.length()>0 else -rig.root.basis.z
+		var dash: Vector3 = direction if direction.length()>0 else combat_forward()
 		velocity.x = dash.x*9
 		velocity.z = dash.z*9
 	if combat.health>0 and combat.action=="flash" and combat.elapsed<0.23:
-		velocity.x = -rig.root.basis.z.x*13
-		velocity.z = -rig.root.basis.z.z*13
+		velocity.x = combat_forward().x*13
+		velocity.z = combat_forward().z*13
 	if not is_on_floor(): velocity.y -= 24*delta
 	move_and_slide()
 	update_lock_camera(delta)
@@ -229,7 +242,9 @@ func _physics_process(delta: float) -> void:
 		motion_epoch += 1
 
 func animate(delta: float, speed: float) -> void:
+	clear_body_turn()
 	if combat.health<=0:
+		body_turn_pose = 0
 		defeat.update(self,delta)
 		return
 	if defeat.started:
@@ -245,6 +260,11 @@ func animate(delta: float, speed: float) -> void:
 		pose_drawn = combat.drawn
 		pose_blend = 0.0
 	walk_clock += delta*speed*2.6
+	if combat.action=="turn": body_turn_pose = wrapf(TAU*smoothstep(0.10,0.58,combat.elapsed),-PI,PI)
+	else: body_turn_pose = lerp_angle(body_turn_pose,0,1-exp(-18*delta)) if delta>0 else 0.0
+	if absf(body_turn_pose)<0.00001: body_turn_pose = 0
+	body_turn_applied = body_turn_pose
+	rig.root.rotation.y += body_turn_applied
 	for side in [-1,1]:
 		rig.joints["arm"+str(side)].rotation.x = -0.85 if combat.drawn else -sin(walk_clock)*side*minf(speed*0.08,0.3)
 	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
@@ -283,7 +303,9 @@ func animate(delta: float, speed: float) -> void:
 				w.rotation.x += clampf(pitch+0.25,-0.4,0.85)*1.22
 			"turn","spin","finisher":
 				w.rotation.y = -1.5+p*TAU
-				if combat.action=="turn": w.rotation.x += clampf(pitch+0.25,-0.4,0.85)*1.22
+				if combat.action=="turn":
+					w.rotation.x += clampf(pitch+0.25,-0.4,0.85)*1.22
+					w.position.z += 0.07*sin(smoothstep(0.10,0.58,t)*PI)
 			"guard","reply":
 				w.rotation.y = PI if combat.action=="reply" else clampf(t/0.18,0,1)*PI
 				w.position.z += 0.55
@@ -317,6 +339,7 @@ func animate(delta: float, speed: float) -> void:
 	else:
 		equipment_grip = 1.0 if combat.drawn else 0.0
 		equipment_main = equipment_grip
+	w.transform = Transform3D(Basis(Vector3.UP,-body_turn_applied),Vector3.ZERO)*w.transform
 	for i in ghosts.size():
 		ghosts[i].visible = combat.health>0 and i<combat.shadow_lifetimes.size()
 		if ghosts[i].visible:
@@ -355,7 +378,7 @@ func foot_ground_sample(local_point: Vector3) -> Dictionary:
 
 func take_damage(amount: float, origin: Vector3, blockable: bool, interrupt := true) -> void:
 	var direction := (origin-global_position).normalized()
-	var front := direction.dot(-rig.root.global_basis.z)>0.15
+	var front := direction.dot(combat_forward())>0.15
 	var exhausted_guard: bool = combat.action=="guard" and combat.elapsed>=0.12 and blockable and front and combat.stamina<15
 	var previous_health: float = combat.health
 	var result: String = combat.receive_damage(amount,blockable,front,interrupt)
@@ -393,7 +416,7 @@ func on_strike(_beat: int) -> void:
 		if is_instance_valid(projectile): return
 		var shot := Projectile.new()
 		shot.shooter = self
-		shot.direction = -rig.root.global_basis.z
+		shot.direction = combat_forward()
 		shot.amount = combat.damage()
 		projectile = shot
 		get_parent().add_child(shot)

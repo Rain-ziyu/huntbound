@@ -125,6 +125,9 @@ static func pose_legs(rig: Dictionary, action: String, elapsed: float, armed: bo
 		if speed>0.1 and action!="dodge":
 			stance = sin(gait)*side*minf(0.28,speed*0.055)
 			lift = maxf(0,cos(gait)*side)*minf(0.14,speed*0.025)
+		if action=="turn":
+			var turning := smoothstep(0.10,0.58,elapsed)
+			lift += maxf(0,sin(turning*TAU*2+(PI if side==1 else 0)))*0.09
 		if action=="finisher" and side==-1:
 			var support := smoothstep(0.55,0.82,elapsed)*(1-smoothstep(1.16,1.40,elapsed))
 			stance = lerpf(stance,0.08,support)
