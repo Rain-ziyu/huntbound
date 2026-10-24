@@ -1,6 +1,8 @@
 extends CharacterBody3D
 signal hit_confirmed(action: String, beat: int, target: Node3D, result: Dictionary)
 const CombatAudio = preload("res://scripts/combat_audio.gd")
+const Defeat = preload("res://scripts/hunter_defeat.gd")
+var defeat = Defeat.new()
 const Combat = preload("res://scripts/combat/trident_combat.gd")
 const Visuals = preload("res://scripts/visuals.gd")
 const Projectile = preload("res://scripts/trident_projectile.gd")
@@ -81,6 +83,7 @@ func _ready() -> void:
 		ghosts.append(ghost)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if combat.health<=0 and event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]: return
 	if is_instance_valid(projectile):
 		if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]: return
 		if event is InputEventKey and (event.physical_keycode in [KEY_Q,KEY_E,KEY_R] or (event.physical_keycode==KEY_SPACE and event.ctrl_pressed)): return
@@ -188,7 +191,8 @@ func cycle_lock(reverse := false) -> void:
 	camera_manual_time = 0
 
 func _physics_process(delta: float) -> void:
-	if heavy_held>=0: heavy_held += delta
+	if combat.health<=0: heavy_held = -1
+	elif heavy_held>=0: heavy_held += delta
 	combat.advance(delta)
 	if is_instance_valid(lock_target) and (lock_target.health<=0 or global_position.distance_to(lock_target.global_position)>30): lock_target = null
 	var axis := Input.get_vector("move_left","move_right","move_forward","move_back")
@@ -199,20 +203,20 @@ func _physics_process(delta: float) -> void:
 	if combat.action in ["plant","wait","counter_window","hurt"] or combat.health<=0: speed = 0
 	velocity.x = direction.x*speed
 	velocity.z = direction.z*speed
-	if combat.action=="dodge":
+	if combat.health>0 and combat.action=="dodge":
 		var dash: Vector3 = direction if direction.length()>0 else -rig.root.basis.z
 		velocity.x = dash.x*9
 		velocity.z = dash.z*9
-	if combat.action=="flash" and combat.elapsed<0.23:
+	if combat.health>0 and combat.action=="flash" and combat.elapsed<0.23:
 		velocity.x = -rig.root.basis.z.x*13
 		velocity.z = -rig.root.basis.z.z*13
 	if not is_on_floor(): velocity.y -= 24*delta
 	move_and_slide()
 	update_lock_camera(delta)
-	if is_instance_valid(lock_target):
+	if combat.health>0 and is_instance_valid(lock_target):
 		var offset := lock_target.global_position-global_position
 		rig.root.rotation.y = lerp_angle(rig.root.rotation.y,atan2(-offset.x,-offset.z),delta*10)
-	elif direction.length()>0.1 and combat.action=="idle":
+	elif combat.health>0 and direction.length()>0.1 and combat.action=="idle":
 		rig.root.rotation.y = lerp_angle(rig.root.rotation.y,atan2(-direction.x,-direction.z),delta*12)
 	mount.position = global_position+Vector3(0,1.5,0)
 	# Keep the orbit above the floor while the nearby weapon aims at elevated parts.
@@ -225,6 +229,12 @@ func _physics_process(delta: float) -> void:
 		motion_epoch += 1
 
 func animate(delta: float, speed: float) -> void:
+	if combat.health<=0:
+		defeat.update(self,delta)
+		return
+	if defeat.started:
+		defeat = Defeat.new()
+		rig.root.rotation.z = 0
 	if combat.action!=pose_action or combat.drawn!=pose_drawn:
 		equipment_route = combat.drawn!=pose_drawn
 		pose_duration = 0.30 if pose_drawn and not combat.drawn else 0.10
