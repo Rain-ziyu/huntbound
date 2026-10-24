@@ -11,6 +11,7 @@ var rig: Dictionary
 var mount: Node3D
 var yaw := 0.0
 var pitch := -0.25
+var motion_epoch := 0
 var walk_clock := 0.0
 var heavy_held := -1.0
 var lock_target: Node3D
@@ -148,7 +149,9 @@ func _physics_process(delta: float) -> void:
 	mount.rotation = Vector3(orbit_pitch,yaw,0)
 	animate(delta,direction.length()*speed)
 	update_weapon_contacts()
-	if global_position.y < -15: global_position = Vector3(0,2,8)
+	if global_position.y < -15:
+		global_position = Vector3(0,2,8)
+		motion_epoch += 1
 
 func animate(delta: float, speed: float) -> void:
 	if combat.action!=pose_action:
@@ -324,4 +327,5 @@ func finish_throw(point: Vector3) -> void:
 		message = "落点空间不足，取消瞬移"
 		return
 	global_position = candidate
+	motion_epoch += 1
 	message = "投掷命中落点，已移至安全位置" if motion.length()>0.5 else "落点受阻，武器收回"

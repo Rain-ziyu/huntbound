@@ -22,6 +22,7 @@ func run() -> void:
 	p.rig.root.rotation.y = 0
 	await physics_frame
 	var hp: float = m.health
+	var epoch: int = p.motion_epoch
 	p.combat.set_action("throw")
 	p.on_strike(0)
 	check(is_instance_valid(p.projectile),"throw creates physical visual projectile")
@@ -35,6 +36,7 @@ func run() -> void:
 	check(get_nodes_in_group("hit_feedback").size()==1,"projectile contact produces one feedback effect")
 	if p.global_position.z >= -10: print("LANDING_DIAGNOSTIC: ",p.message," at ",p.global_position)
 	check(p.global_position.z < -10 and p.global_position.z > -16,"arrival stops before monster capsule")
+	check(p.motion_epoch==epoch+1,"successful teleport marks discontinuous motion")
 	await process_frame
 	world.obstacle(Vector3(10,2,2),Vector3(8,4,0.5),Color.GRAY)
 	p.global_position = Vector3(10,preload("res://scripts/forest_terrain.gd").height_at(10,8)+0.05,8)
@@ -43,8 +45,10 @@ func run() -> void:
 	check(p.global_position.z>2.3,"capsule sweep prevents wall crossing")
 	p.combat.set_action("hurt")
 	var before: Vector3 = p.global_position
+	epoch = p.motion_epoch
 	p.finish_throw(Vector3(30,0,20))
 	check(p.global_position==before,"interrupted throw cannot teleport")
+	check(p.motion_epoch==epoch,"cancelled teleport preserves movement history")
 	print("PROJECTILE_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame

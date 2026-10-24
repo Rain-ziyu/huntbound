@@ -16,9 +16,13 @@ static func profile(mesh: Mesh) -> Array[Vector4]:
 		result.append(Vector4(depth,(bounds.z+bounds.w)*0.5,maxf(bounds.y-bounds.x,bounds.w-bounds.z)*0.5,0))
 	return result
 
-static func touches(rings: Array[Vector4], before: Transform3D, after: Transform3D, feet: Vector3) -> bool:
-	var low := feet+Vector3.UP*0.32
-	var high := feet+Vector3.UP*1.48
+static func touches(rings: Array[Vector4], before: Transform3D, after: Transform3D, feet: Vector3, previous_feet: Variant = null) -> bool:
+	return not contact(rings,before,after,feet,previous_feet).is_empty()
+
+static func contact(rings: Array[Vector4], before: Transform3D, after: Transform3D, feet: Vector3, previous_feet: Variant = null) -> Dictionary:
+	var start: Vector3 = feet if previous_feet==null else previous_feet
+	var low := Vector3.UP*0.32
+	var high := Vector3.UP*1.48
 	for index in range(rings.size()-1):
 		var first := rings[index]
 		var last := rings[index+1]
@@ -26,7 +30,13 @@ static func touches(rings: Array[Vector4], before: Transform3D, after: Transform
 		for step in range(steps+1):
 			var ring := first.lerp(last,float(step)/steps)
 			var center := Vector3(0,ring.y,ring.x)
-			var closest := Geometry3D.get_closest_points_between_segments(before*center,after*center,low,high)
+			# Relative motion keeps tail and hunter samples at the same time fraction.
+			var first_point := before*center-start
+			var last_point := after*center-feet
+			var closest := Geometry3D.get_closest_points_between_segments(first_point,last_point,low,high)
 			# Half sample spacing closes gaps between adjacent spheres.
-			if closest[0].distance_to(closest[1])<=0.32+ring.z+0.04: return true
-	return false
+			if closest[0].distance_to(closest[1])<=0.32+ring.z+0.04:
+				var travel := last_point-first_point
+				var fraction := clampf((closest[0]-first_point).dot(travel)/travel.length_squared(),0,1) if travel.length_squared()>0.000001 else 1.0
+				return {"feet":start.lerp(feet,fraction),"fraction":fraction}
+	return {}

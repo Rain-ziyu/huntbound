@@ -41,6 +41,10 @@ func run() -> void:
 	check(not Contact.touches(rings,after,after,feet),"tail ends clear of capsule")
 	check(Contact.touches(rings,before,after,feet),"swept tail catches crossing between disjoint poses")
 	check(not Contact.touches(rings,before,after,feet+Vector3.UP*4),"sweep rejects vertically separated capsule")
+	check(Contact.touches(rings,Transform3D.IDENTITY,Transform3D.IDENTITY,Vector3(2,0,1),Vector3(-2,0,1)),"moving hunter crosses stationary tail between frames")
+	check(Contact.touches(rings,before,after,Vector3(-2,0,1),Vector3(2,0,1)),"opposing motions collide at shared time")
+	check(not Contact.touches(rings,before,after,Vector3(3,0,1),Vector3(-1,0,1)),"overlapping spatial paths at different times do not collide")
+	check(not Contact.touches(rings,before,after,Vector3(2,0,4),Vector3(-2,0,4)),"crossing motion outside tail length remains clear")
 	world = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(world)
 	await physics_frame
@@ -131,6 +135,22 @@ func run() -> void:
 		check(m.rear_attack and m.rear_contains(fighter.global_position),"edge target remains inside broad warning sector")
 		await finish_hit(m)
 		check(fighter.combat.health==240,"warning sector alone does not deal damage without tail contact")
+		for teleport in [false,true]:
+			prepare(m)
+			await until_active(m)
+			m.set_physics_process(false)
+			fighter.global_position = m.global_position+Vector3(-3,0,3.2)
+			m.previous_target_feet = fighter.global_position
+			m.previous_motion_epoch = fighter.motion_epoch
+			m.clock = 0.23
+			m.mesh.get_node("Tail").rotation.y = lerpf(-0.9,0.9,smoothstep(0,0.5,m.clock))
+			m.previous_tail = m.mesh.get_node("Tail").global_transform
+			m.advance_rear_attack(1.0/60)
+			fighter.global_position = m.global_position+Vector3(3,0,3.2)
+			if teleport: fighter.motion_epoch += 1
+			m.clock = 0.25
+			m.advance_rear_attack(1.0/60)
+			check(fighter.combat.health==240 if teleport else fighter.combat.health<240,("teleport skips intervening path: " if teleport else "live tail pipeline detects moving hunter crossing: ")+str(m.data.id))
 	print("REAR_ATTACK_CHECKS: ",checks," FAILURES: ",failures)
 	world.queue_free()
 	await process_frame
