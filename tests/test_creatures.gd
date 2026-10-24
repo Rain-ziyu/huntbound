@@ -20,15 +20,27 @@ func run() -> void:
 		check(m.mesh.has_node("Neck") and m.mesh.has_node("Tail"),"neck and tail rig: "+str(m.data.id))
 		var quad: bool = "quadruped" in m.data.body
 		check(m.mesh.has_node("Front1")==quad,"correct limb plan: "+str(m.data.id))
-		m.CreatureModel.animate(m.mesh,m.data,1.0,"idle",0.3,4)
-		check(absf(m.mesh.get_node("Hind1").rotation.x)>0.05,"walking leg moves")
+		m.CreatureModel.animate(m.mesh,m.data,0,"idle",0,4)
+		var skeleton: Skeleton3D = m.mesh.get_node("Hind1/LegSkeleton")
+		skeleton.force_update_all_bone_transforms()
+		var planted: Vector3 = skeleton.get_bone_global_pose(2).origin
+		m.CreatureModel.animate(m.mesh,m.data,PI/2,"idle",0.3,4)
+		skeleton.force_update_all_bone_transforms()
+		check(skeleton.get_bone_global_pose(2).origin.distance_to(planted)>0.05,"rendered walking ankle moves: "+str(m.data.id))
 	var m = monsters[0]
-	m.global_position = Vector3(0,0,-16)
+	m.global_position = Vector3(0,0,-15)
 	m.rotation.y = PI/2 # Keep the long tail on the monster's side of the wall.
 	p.global_position = Vector3(0,0.05,-13)
 	p.rig.root.rotation.y = 0
 	await physics_frame
 	check(m.clear_line_to(p.global_position),"open attack line")
+	p.combat.set_action("light")
+	p.combat.elapsed = 0.25
+	p.animate(0,0)
+	var open_hp: float = m.health
+	p.on_strike(0)
+	p.update_weapon_contacts()
+	check(m.health<open_hp,"unobstructed control actually contacts creature before wall is added")
 	world.obstacle(Vector3(0,1.5,-13.8),Vector3(3,3,0.15),Color.GRAY)
 	await physics_frame
 	await physics_frame

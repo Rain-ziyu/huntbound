@@ -120,3 +120,5 @@ WASD 移动，鼠标转视角，Shift 奔跑，空格闪避，中键锁定，Tab
 架势内不恢复耐力，每次成功格挡消耗 15 点。耐力不足时会被击破，需收势后走位恢复；已获得的格挡反击机会在零耐力时仍可使用。
 
 原生战斗帧时间测量：使用 Godot 图形程序运行 `--path . --script res://tools/benchmark_combat.gd --quit-after 30000`。不要添加 `--headless`、`--fixed-fps` 或录屏参数；等待 COMBAT_PERFORMANCE 与 WEAPON_SEQUENCE 两个结束标记。报告保存在项目旁的 verification 目录。本工具关闭垂直同步和帧率限制，仅测单怪连携；不会保存这些显示设置。
+
+跨系统检查：`python tools/verify_regressions.py`；实际渲染专项可用 `python tools/verify_regressions.py --native --only test_hunter_visibility test_forest_art`。每项有超时和完成标记检查，报告保存在项目旁 verification 目录；无窗口结果不证明 GPU 画面或人工手感。
