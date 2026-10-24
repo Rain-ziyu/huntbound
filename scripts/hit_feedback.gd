@@ -5,6 +5,9 @@ static var normal_sound: AudioStreamWAV
 static var weak_sound: AudioStreamWAV
 var damage := 0.0
 var weak := false
+var action := "light"
+var force := 1.0
+var sparks: Node3D
 var age := 0.0
 var lifetime := 0.55
 var rays: Array[MeshInstance3D] = []
@@ -17,8 +20,11 @@ func _ready() -> void:
 	flash_material = Visuals.mat(color,true)
 	flash_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	flash_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	force = impact_force(action,weak)
+	sparks = Node3D.new()
+	add_child(sparks)
 	for index in 6:
-		var ray := Visuals.piece(self,Vector3.ZERO,Vector3(0.035,0.12,0.035),color)
+		var ray := Visuals.piece(sparks,Vector3.ZERO,Vector3(0.035,0.12,0.035)*force,color)
 		ray.material_override = flash_material
 		ray.rotation.z = index*PI/3
 		rays.append(ray)
@@ -40,6 +46,15 @@ func _ready() -> void:
 	add_child(sound)
 	if DisplayServer.get_name()!="headless": sound.play()
 	advance_visual(0)
+
+static func impact_force(move: String, is_weak: bool) -> float:
+	var amount := 1.0
+	match move:
+		"heavy","turn","spin": amount = 1.35
+		"fourfold": amount = 0.8
+		"finisher": amount = 1.5
+		"flash","throw","reply": amount = 1.15
+	return amount*(1.2 if is_weak else 1.0)
 
 static func synthesize(is_weak: bool) -> AudioStreamWAV:
 	var stream := AudioStreamWAV.new()
@@ -65,10 +80,12 @@ func advance_visual(delta: float) -> void:
 		queue_free()
 		return
 	var alpha := maxf(0,1-age/0.18)
+	var camera := get_viewport().get_camera_3d()
+	if is_instance_valid(camera): sparks.global_basis = camera.global_basis.orthonormalized()
 	flash_material.albedo_color.a = alpha
 	for index in rays.size():
 		var angle := index*TAU/6
-		rays[index].position = Vector3(sin(angle),cos(angle),0)*(0.04+age*1.2)
+		rays[index].position = Vector3(sin(angle),cos(angle),0)*(0.04+age*1.2)*force
 		rays[index].visible = alpha>0
 	number.position.y = 0.16+age*0.8
 	number.modulate.a = clampf((lifetime-age)/0.20,0,1)

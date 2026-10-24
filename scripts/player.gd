@@ -416,14 +416,15 @@ func _process(delta: float) -> void:
 	camera.v_offset = cos(shake_time*145)*shake_strength*envelope*0.65
 	if shake_time==0: shake_strength = 0
 
-func show_hit_feedback(point: Vector3, result: Dictionary) -> void:
+func show_hit_feedback(point: Vector3, result: Dictionary, action: String = "") -> void:
 	if not result.get("hit",false): return
 	var effect := HitFeedback.new()
 	effect.damage = result.damage
 	effect.weak = result.weak
+	effect.action = combat.action if action.is_empty() else action
 	get_parent().add_child(effect)
 	effect.global_position = point
-	trigger_camera_impact(0.028 if result.weak else 0.014)
+	trigger_camera_impact(minf(0.04,(0.023 if result.weak else 0.014)*effect.force))
 
 func on_strike(_beat: int) -> void:
 	var action: String = combat.action
@@ -484,7 +485,7 @@ func update_weapon_contacts() -> void:
 			var result: Dictionary = m.receive_strike(combat.damage(),global_position,window.action,contact.part)
 			if result.hit:
 				combat.confirm_hit()
-				show_hit_feedback(contact.point,result)
+				show_hit_feedback(contact.point,result,window.action)
 				hit_confirmed.emit(window.action,window.beat,m,result)
 				message = ("弱点！ " if result.weak else "命中 ")+str(roundi(result.damage))+" · "+str(result.part)
 		window.previous = points
