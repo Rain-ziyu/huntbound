@@ -77,6 +77,7 @@ func _ready() -> void:
 		ghost.position = Vector3((i-2)*0.23,1.35,0.38)
 		ghost.rotation.z = (i-2)*-0.17
 		ghost.scale = Vector3.ONE*0.65
+		ghost.get_meta("spectral_material").set_shader_parameter("phase_offset",i*0.9)
 		ghosts.append(ghost)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -294,7 +295,10 @@ func animate(delta: float, speed: float) -> void:
 	else:
 		equipment_grip = 1.0 if combat.drawn else 0.0
 		equipment_main = equipment_grip
-	for i in ghosts.size(): ghosts[i].visible = i<combat.shadow_lifetimes.size()
+	for i in ghosts.size():
+		ghosts[i].visible = combat.health>0 and i<combat.shadow_lifetimes.size()
+		if ghosts[i].visible:
+			ghosts[i].get_meta("spectral_material").set_shader_parameter("life_fade",0.2+0.8*smoothstep(0,6,combat.shadow_lifetimes[i]))
 	HunterModel.pose_legs(rig,combat.action,combat.elapsed,combat.drawn,walk_clock,speed,delta,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
 	HunterModel.pose_torso(rig,combat.action,combat.elapsed,walk_clock,speed,delta)
 	var release := smoothstep(0.28,0.38,combat.elapsed) if combat.action=="throw" else 0.0

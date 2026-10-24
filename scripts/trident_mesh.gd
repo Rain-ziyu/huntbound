@@ -84,4 +84,10 @@ static func create(parent: Node3D, spectral: bool) -> Node3D:
 		marker.name = label
 		marker.position = contacts[label]
 		root.add_child(marker)
+	if spectral:
+		var spirit := ShaderMaterial.new()
+		spirit.shader = preload("res://shaders/spectral_trident.gdshader")
+		for child in root.get_children():
+			if child is MeshInstance3D: child.material_override = spirit
+		root.set_meta("spectral_material",spirit)
 	return root
