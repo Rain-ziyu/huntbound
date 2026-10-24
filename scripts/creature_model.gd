@@ -87,7 +87,6 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 		root.position.y = -0.45*smoothstep(0,0.4,clock) if data.pattern=="pulse" else 0.0
 	elif phase=="active":
 		if data.pattern=="pulse": root.position.y = -0.45*(1-smoothstep(0,0.3,clock))
-		if data.pattern=="leap": root.position.y = sin(clampf(clock/0.65,0,1)*PI)*1.0
 	else: root.position.y = 0
 	if data.pattern=="sweep":
 		# One continuous pull-back, crossing sweep and follow-through, with no phase snap.
@@ -98,8 +97,37 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 			neck.rotation.x = -0.20*(1-smoothstep(0,0.30,clock))
 		elif phase=="recover":
 			neck.rotation.y = 0.85*(1-smoothstep(0,float(data.recovery),clock))
+	if data.pattern=="charge":
+		var compression := float(data.size)*0.05
+		if phase=="windup":
+			var load := smoothstep(0,float(data.windup),clock)
+			neck.rotation.x = 0.35*load
+			root.position.y = -compression*load
+		elif phase=="active":
+			neck.rotation.x = 0.35
+			root.position.y = -compression
+		elif phase=="recover":
+			var release := 1-smoothstep(0,0.55,clock)
+			neck.rotation.x = 0.35*release
+			root.position.y = -compression*release
+	elif data.pattern=="leap":
+		var compression := float(data.size)*0.10
+		if phase=="windup":
+			var load := smoothstep(0,float(data.windup),clock)
+			neck.rotation.x = -0.20*load
+			root.position.y = -compression*load
+		elif phase=="active":
+			var progress := clampf(clock/0.65,0,1)
+			root.position.y = sin(progress*PI)-compression*(1-smoothstep(0,0.14,clock))
+			neck.rotation.x = lerpf(-0.20,0.15,smoothstep(0,0.30,clock))
+		elif phase=="recover":
+			root.position.y = -float(data.size)*0.06*sin(clampf(clock/0.30,0,1)*PI)
+			neck.rotation.x = 0.15*(1-smoothstep(0,0.40,clock))
 	# Bend knees when the torso lowers; solve the planted foot back to actor ground.
-	root.position.y -= float(data.size)*0.045*minf(speed/2,1)
+	if phase=="idle": root.position.y -= float(data.size)*0.045*minf(speed/2,1)
+	var limb_speed := speed
+	if data.pattern in ["charge","leap"] and phase=="active":
+		limb_speed *= smoothstep(0,0.12,clock)*(1-smoothstep(0.53,0.65,clock))
 	var hip_height := float(data.size)*(0.50 if "quadruped" in data.body else 0.64)*0.9
 	var targets := []
 	var lowest := 0.0
@@ -115,11 +143,11 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 				var target := Vector3(0,foot.position.y-minf(root.position.y,0),0)
 				var lift := 0.0
 				var foot_basis := Basis.IDENTITY
-				if speed>0.1:
-					target.z = sin(step)*side*minf(float(data.size)*0.16,speed*0.06)
-					lift = maxf(0,cos(step)*side)*minf(float(data.size)*0.10,speed*0.035)
+				if limb_speed>0.1:
+					target.z = sin(step)*side*minf(float(data.size)*0.16,limb_speed*0.06)
+					lift = maxf(0,cos(step)*side)*minf(float(data.size)*0.10,limb_speed*0.035)
 					target.y += lift
-				var planting := ground.is_valid() and phase=="idle" and speed>0.1 and lift<0.001
+				var planting := ground.is_valid() and phase=="idle" and limb_speed>0.1 and lift<0.001
 				var sole_offset := Vector3(0,-float(data.size)*0.05,-float(data.size)*0.10)
 				if leg.has_meta("plant_world"):
 					var anchor: Vector3 = leg.to_local(leg.get_meta("plant_world"))-sole_offset
