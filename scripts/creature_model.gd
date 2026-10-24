@@ -68,7 +68,7 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 			if leg: LegSkin.bind(leg,s)
 	return root
 
-static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float, ground: Callable = Callable(), ground_normal: Callable = Callable()) -> void:
+static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float, ground: Callable = Callable(), ground_normal: Callable = Callable(), physical_flight := false) -> void:
 	var tail := root.get_node("Tail") as Node3D
 	var tail_gait := gait*(1.7/GAIT_PER_METER)
 	tail.rotation.y = sin(tail_gait*0.5)*0.12
@@ -118,7 +118,7 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 			root.position.y = -compression*load
 		elif phase=="active":
 			var progress := clampf(clock/0.65,0,1)
-			root.position.y = sin(progress*PI)-compression*(1-smoothstep(0,0.14,clock))
+			root.position.y = (0.0 if physical_flight else sin(progress*PI))-compression*(1-smoothstep(0,0.14,clock))
 			neck.rotation.x = lerpf(-0.20,0.15,smoothstep(0,0.30,clock))
 		elif phase=="recover":
 			root.position.y = -float(data.size)*0.06*sin(clampf(clock/0.30,0,1)*PI)

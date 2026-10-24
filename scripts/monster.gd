@@ -5,6 +5,11 @@ const CreatureModel = preload("res://scripts/creature_model.gd")
 const Parts = preload("res://scripts/monster_parts.gd")
 const TailContact = preload("res://scripts/tail_contact.gd")
 const LungeWarning = preload("res://scripts/lunge_warning.gd")
+const LEAP_DURATION := 0.65
+const LEAP_HEIGHT := 1.0
+const LEAP_GRAVITY := 8.0*LEAP_HEIGHT/(LEAP_DURATION*LEAP_DURATION)
+const LEAP_SPEED := 4.0*LEAP_HEIGHT/LEAP_DURATION
+var airborne_leap := false
 var lunge_tell: MeshInstance3D
 var lunge_origin := Vector3.ZERO
 var wall_stun := 0.0
@@ -118,7 +123,14 @@ func _physics_process(delta: float) -> void:
 	lunge_tell.visible = false
 	if health <= 0:
 		collision_layer = 0
-		collision_mask = 0
+		# A defeated airborne body still falls onto world geometry without blocking actors.
+		collision_mask = 2 if not is_on_floor() else 0
+		if not is_on_floor():
+			velocity.y -= (LEAP_GRAVITY if airborne_leap else 25.0)*delta
+			velocity.x = move_toward(velocity.x,0,8*delta)
+			velocity.z = move_toward(velocity.z,0,8*delta)
+			move_actor()
+			if is_on_floor(): collision_mask = 0
 		weak_marker.visible = false
 		mesh.rotation.z = lerpf(mesh.rotation.z,1.35,delta*3)
 		tell.visible = false
@@ -133,22 +145,28 @@ func _physics_process(delta: float) -> void:
 	if data.id=="stormcrest": weak_marker.visible = phase=="windup" or stagger>0
 	stagger = maxf(0,stagger-delta)
 	exposed = maxf(0,exposed-delta)
-	if not is_on_floor(): velocity.y -= 25*delta
+	if not is_on_floor(): velocity.y -= (LEAP_GRAVITY if airborne_leap else 25.0)*delta
 	if stagger > 0:
 		phase = "recover"
 		clock = 0
 		tell.visible = false
 		velocity.x = move_toward(velocity.x,0,8*delta)
 		velocity.z = move_toward(velocity.z,0,8*delta)
-		move_and_slide()
+		move_actor()
 		return
-	if not is_instance_valid(target): return
+	if not is_instance_valid(target):
+		phase = "idle"
+		tell.visible = false
+		velocity.x = 0
+		velocity.z = 0
+		move_actor()
+		return
 	if target.combat.health<=0:
 		phase = "idle"
 		tell.visible = false
 		velocity.x = 0
 		velocity.z = 0
-		move_and_slide()
+		move_actor()
 		return
 	var offset := target.global_position-global_position
 	offset.y = 0
@@ -207,6 +225,9 @@ func _physics_process(delta: float) -> void:
 				lunge_direction.y = 0
 				lunge_direction = lunge_direction.normalized()
 				if lunge_direction.is_zero_approx(): lunge_direction = -global_basis.z
+			if data.pattern=="leap" and is_on_floor():
+				airborne_leap = true
+				velocity.y = LEAP_SPEED
 			phase = "active"
 			clock = 0
 	elif phase == "active":
@@ -236,7 +257,7 @@ func _physics_process(delta: float) -> void:
 		if clock >= float(data.recovery):
 			phase = "idle"
 			clock = 0
-	move_and_slide()
+	move_actor()
 	if phase=="active" and not rear_attack and data.pattern in ["charge","leap"]:
 		for index in get_slide_collision_count():
 			var collision := get_slide_collision(index)
@@ -256,7 +277,7 @@ func _physics_process(delta: float) -> void:
 	# Presentation cadence follows travel without turning a lunge into rapid foot flutter.
 	gait += delta*minf(Vector2(velocity.x,velocity.z).length(),float(data.speed)*1.2)*CreatureModel.GAIT_PER_METER
 	var grounded_pose: bool = is_on_floor() and not (phase=="active" and data.pattern=="leap")
-	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length(),foot_ground_height if grounded_pose else Callable(),foot_ground_normal if grounded_pose else Callable())
+	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length(),foot_ground_height if grounded_pose else Callable(),foot_ground_normal if grounded_pose else Callable(),data.pattern=="leap")
 	var head: Transform3D = mesh.get_node("Neck").global_transform
 	if data.pattern=="sweep" and phase=="active" and clock>=0.08 and clock<=0.45 and not attack_done:
 		var start: Vector3 = previous_head_target if target.motion_epoch==previous_head_epoch else target.global_position
@@ -270,6 +291,10 @@ func _physics_process(delta: float) -> void:
 	previous_head_target = target.global_position
 	previous_head_epoch = target.motion_epoch
 
+
+func move_actor() -> void:
+	move_and_slide()
+	if airborne_leap and is_on_floor(): airborne_leap = false
 
 func foot_ground_height(point: Vector3) -> float:
 	var hit := foot_ground_sample(point)
@@ -321,7 +346,7 @@ func advance_rear_attack(delta: float) -> void:
 			phase = "idle"
 			clock = 0
 			rear_attack = false
-	move_and_slide()
+	move_actor()
 	CreatureModel.animate(mesh,data,gait,"idle",0,0,foot_ground_height if is_on_floor() else Callable(),foot_ground_normal if is_on_floor() else Callable())
 	mesh.rotation.x = lerpf(mesh.rotation.x,0,delta*6)
 	mesh.get_node("Tail").rotation.y = tail_yaw
