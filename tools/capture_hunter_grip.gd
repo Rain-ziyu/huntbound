@@ -29,14 +29,21 @@ func run() -> void:
 	camera.current = true
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../Shubian-hunter-grip.png"))
+	root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../Shubian-hunter-fabric.png" if "--fabric" in OS.get_cmdline_user_args() else "res://../Shubian-hunter-grip.png"))
+	if "--fabric" in OS.get_cmdline_user_args():
+		camera.position = Vector3(-0.35,1.40,-0.90)
+		camera.look_at(Vector3(0,1.28,-0.10))
+		camera.fov = 42
+		for frame in 3: await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../Shubian-hunter-fabric-detail.png"))
 	rig.weapon.hide()
 	H.pose_arms(rig,false,0)
 	camera.position = Vector3(-0.65,0.95,-1.4)
 	camera.look_at(Vector3(0,0.8,0))
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../Shubian-hunter-open-hands.png"))
+	root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../Shubian-hunter-fabric-open.png" if "--fabric" in OS.get_cmdline_user_args() else "res://../Shubian-hunter-open-hands.png"))
 	stage.queue_free()
 	await process_frame
 	quit()

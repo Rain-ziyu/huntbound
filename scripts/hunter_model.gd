@@ -1,5 +1,6 @@
 extends RefCounted
 const V = preload("res://scripts/visuals.gd")
+const Fabric = preload("res://scripts/hunter_fabric.gd")
 const Skinning = preload("res://scripts/hunter_skin.gd")
 const Hand = preload("res://scripts/hunter_hand.gd")
 const Outfit = preload("res://scripts/hunter_outfit.gd")
@@ -55,6 +56,7 @@ static func create(parent: Node3D) -> Dictionary:
 	var rig := {"root":root,"torso":torso,"joints":joints,"arms":arms,"legs":legs,"skirts":costume.skirts,"weapon":V.trident(root)}
 	rig.weapon.name = "Trident"
 	pose_arms(rig,false,0)
+	Fabric.apply(root)
 	rig.skinning = Skinning.bind(rig)
 	if ResourceLoader.exists("res://resources/animations/trident_library.tres"):
 		var player := AnimationPlayer.new()

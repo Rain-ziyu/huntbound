@@ -84,6 +84,7 @@ func _ready() -> void:
 		ghost.rotation.z = (i-2)*-0.17
 		ghost.scale = Vector3.ONE*0.65
 		ghost.get_meta("spectral_material").set_shader_parameter("phase_offset",i*0.9)
+		ghost.hide()
 		ghosts.append(ghost)
 
 func _input(event: InputEvent) -> void:

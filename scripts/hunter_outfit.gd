@@ -6,13 +6,21 @@ static func loft(parent: Node3D, label: String, rings: Array, color: Color, star
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_smooth_group(0)
+	var bottom: float = rings[0].x
+	var span := maxf(0.0001,float(rings[-1].x)-bottom)
 	for row in range(rings.size()-1):
 		for column in segments:
 			var a := profile_point(rings[row],lerpf(start,end,float(column)/segments))
 			var b := profile_point(rings[row],lerpf(start,end,float(column+1)/segments))
 			var c := profile_point(rings[row+1],lerpf(start,end,float(column)/segments))
 			var d := profile_point(rings[row+1],lerpf(start,end,float(column+1)/segments))
-			for point in [a,c,b,b,c,d]: st.add_vertex(point)
+			var u0 := float(column)/segments
+			var u1 := float(column+1)/segments
+			var v0 := (float(rings[row].x)-bottom)/span
+			var v1 := (float(rings[row+1].x)-bottom)/span
+			for item in [[a,Vector2(u0,v0)],[c,Vector2(u0,v1)],[b,Vector2(u1,v0)],[b,Vector2(u1,v0)],[c,Vector2(u0,v1)],[d,Vector2(u1,v1)]]:
+				st.set_uv(item[1])
+				st.add_vertex(item[0])
 	if caps:
 		st.set_smooth_group(-1)
 		for row in [0,rings.size()-1]:
@@ -21,7 +29,9 @@ static func loft(parent: Node3D, label: String, rings: Array, color: Color, star
 			for column in segments:
 				var a := profile_point(ring,lerpf(start,end,float(column)/segments))
 				var b := profile_point(ring,lerpf(start,end,float(column+1)/segments))
-				for point in ([center,a,b] if row==0 else [center,b,a]): st.add_vertex(point)
+				for point in ([center,a,b] if row==0 else [center,b,a]):
+					st.set_uv(Vector2(point.x/maxf(ring.y*2,0.0001)+0.5,(point.z-ring.w)/maxf(ring.z*2,0.0001)+0.5))
+					st.add_vertex(point)
 	st.generate_normals()
 	var mesh := MeshInstance3D.new()
 	mesh.name = label
@@ -36,8 +46,16 @@ static func profile_point(ring: Vector4, angle: float) -> Vector3:
 static func patch(parent: Node3D, label: String, points: Array, color: Color) -> MeshInstance3D:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var lower := Vector2(INF,INF)
+	var upper := Vector2(-INF,-INF)
+	for point in points:
+		lower = lower.min(Vector2(point.x,point.y))
+		upper = upper.max(Vector2(point.x,point.y))
+	var extent := (upper-lower).max(Vector2(0.0001,0.0001))
 	for index in range(1,points.size()-1):
-		for vertex in [points[0],points[index],points[index+1]]: st.add_vertex(vertex)
+		for vertex in [points[0],points[index],points[index+1]]:
+			st.set_uv((Vector2(vertex.x,vertex.y)-lower)/extent)
+			st.add_vertex(vertex)
 	st.generate_normals()
 	var result := MeshInstance3D.new()
 	result.name = label
