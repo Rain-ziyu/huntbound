@@ -67,7 +67,7 @@ static func create(parent: Node3D, data: Dictionary) -> Node3D:
 			if leg: LegSkin.bind(leg,s)
 	return root
 
-static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float) -> void:
+static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, clock: float, speed: float, ground: Callable = Callable()) -> void:
 	var tail := root.get_node("Tail") as Node3D
 	tail.rotation.y = sin(gait*0.5)*0.12
 	TailSkin.animate(tail,gait,phase,clock)
@@ -91,6 +91,8 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 	# Bend knees when the torso lowers; solve the planted foot back to actor ground.
 	root.position.y -= float(data.size)*0.045*minf(speed/2,1)
 	var hip_height := float(data.size)*(0.50 if "quadruped" in data.body else 0.64)*0.9
+	var targets := []
+	var lowest := 0.0
 	for side in [-1,1]:
 		for label in ["Front","Hind"]:
 			var leg := root.get_node_or_null(label+str(side)) as Node3D
@@ -104,4 +106,14 @@ static func animate(root: Node3D, data: Dictionary, gait: float, phase: String, 
 				if speed>0.1:
 					target.z = sin(step)*side*minf(float(data.size)*0.16,speed*0.06)
 					target.y += maxf(0,cos(step)*side)*minf(float(data.size)*0.10,speed*0.035)
-				LegSkin.pose(leg,target)
+				if ground.is_valid():
+					var sample_point := leg.to_global(target+Vector3(0,-float(data.size)*0.05,-float(data.size)*0.10))
+					var height: float = clampf(ground.call(sample_point),-0.35,0.35)
+					target.y += height
+					lowest = minf(lowest,height)
+				targets.append({"leg":leg,"target":target})
+	root.position.y += lowest
+	for entry in targets:
+		var target: Vector3 = entry.target
+		target.y -= lowest
+		LegSkin.pose(entry.leg,target)

@@ -248,7 +248,14 @@ func _physics_process(delta: float) -> void:
 				show_impact(true)
 				break
 	gait += delta*Vector2(velocity.x,velocity.z).length()*1.7
-	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length())
+	CreatureModel.animate(mesh,data,gait,phase,clock,Vector2(velocity.x,velocity.z).length(),foot_ground_height if is_on_floor() and not (phase=="active" and data.pattern=="leap") else Callable())
+
+func foot_ground_height(point: Vector3) -> float:
+	point.y = global_position.y
+	var query := PhysicsRayQueryParameters3D.create(point+Vector3.UP*0.8,point-Vector3.UP,2)
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or hit.normal.y<0.72: return 0.0
+	return hit.position.y-global_position.y
 
 func lunge_contains(point: Vector3) -> bool:
 	var offset := point-global_position
@@ -286,7 +293,7 @@ func advance_rear_attack(delta: float) -> void:
 			clock = 0
 			rear_attack = false
 	move_and_slide()
-	CreatureModel.animate(mesh,data,gait,"recover",clock,0)
+	CreatureModel.animate(mesh,data,gait,"recover",clock,0,foot_ground_height if is_on_floor() else Callable())
 	mesh.rotation.x = lerpf(mesh.rotation.x,0,delta*6)
 	mesh.get_node("Tail").rotation.y = tail_yaw
 	var current_tail: Transform3D = mesh.get_node("Tail").global_transform

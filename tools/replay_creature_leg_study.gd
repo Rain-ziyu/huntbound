@@ -5,8 +5,10 @@ var models: Array[Node3D] = []
 var species_data: Array[Dictionary] = []
 var frame := 0
 var running := false
+var slope_mode := false
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
+	slope_mode = "--slope" in OS.get_cmdline_user_args()
 	stage = Node3D.new()
 	root.add_child(stage)
 	var env := WorldEnvironment.new()
@@ -22,12 +24,16 @@ func run() -> void:
 	sun.light_energy = 0.9
 	sun.shadow_enabled = true
 	stage.add_child(sun)
-	Model.V.piece(stage,Vector3(0,-0.15,1),Vector3(22,0.3,18),Color("596d64"))
+	var floor_mesh := Model.V.piece(stage,Vector3(0,-0.15,1),Vector3(22,0.3,18),Color("596d64"))
+	if slope_mode:
+		floor_mesh.rotation.z = atan(0.2)
+		floor_mesh.position.y = -0.15/cos(atan(0.2))
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://resources/monsters.json"))
 	for side in [-1,1]:
 		var holder := Node3D.new()
 		stage.add_child(holder)
 		holder.position.x = side*3.2
+		if slope_mode: holder.position.y = holder.position.x*0.2
 		var species: Dictionary = data.species[0 if side==-1 else 3]
 		var model := Model.create(holder,species)
 		models.append(model)
@@ -47,6 +53,7 @@ func run() -> void:
 	camera.current = true
 	var title := Label.new()
 	title.text = "戍边 · 腿部骨骼步态研究（原地循环，非实战）"
+	if slope_mode: title.text = "戍边 · 支撑脚坡面示意（静态，非实战）"
 	title.position = Vector2(20,18)
 	title.add_theme_font_size_override("font_size",26)
 	root.add_child(title)
@@ -56,12 +63,21 @@ func _process(_delta: float) -> bool:
 	if not running: return false
 	var time := float(frame)/60
 	for i in 2:
-		Model.animate(models[i],species_data[i],time*5,"idle",0,4)
+		if slope_mode:
+			var baseline: float = models[i].get_parent().position.y
+			var ground := func(point: Vector3) -> float: return point.x*0.2-baseline
+			Model.animate(models[i],species_data[i],0,"idle",0,0,ground)
+		else: Model.animate(models[i],species_data[i],time*5,"idle",0,4)
 	frame += 1
+	if slope_mode and frame==120: call_deferred("capture_slope")
 	if frame>=240:
 		running = false
 		call_deferred("finish")
 	return false
+func capture_slope() -> void:
+	await RenderingServer.frame_post_draw
+	var result := root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../Shubian-creature-slope.png"))
+	print("CREATURE_SLOPE_CAPTURE: ",result)
 func finish() -> void:
 	print("CREATURE_LEG_STUDY: 240 frames; in-place gait study only")
 	stage.queue_free()
